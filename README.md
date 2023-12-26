@@ -2,6 +2,10 @@
 
 基于Vue3+ElementPlus+Gin+Gorm编写的一款管理平台
 
+# 后端启动
+
+进入main.go文件，执行main函数即可。
+
 # 后端项目地址
 
 github：https://github.com/Lvan826199/xz-go-frame
