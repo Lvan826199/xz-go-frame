@@ -1,6 +1,9 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"xz-go-frame/initlization"
+)
 
 //go:generate go env -w GO111MODULE=on
 //go:generate go env -w GOPROXY=https://goproxy.cn,direct
@@ -8,5 +11,7 @@ import "fmt"
 //go:generate go mod download
 
 func main() {
+	// 开始初始化gin路由服务
+	initlization.WebRouterInit()
 	fmt.Println("启动xz-go-frame后端成功")
 }
