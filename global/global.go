@@ -4,9 +4,13 @@
  */
 package global
 
-import "xz-go-frame/commons/parse"
+import (
+	"gorm.io/gorm"
+	"xz-go-frame/commons/parse"
+)
 
 var (
 	Yaml   map[string]any
 	Config *parse.Config
+	XZ_DB  *gorm.DB
 )

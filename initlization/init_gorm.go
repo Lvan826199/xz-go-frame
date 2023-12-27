@@ -4,6 +4,12 @@
  */
 package initlization
 
-func InitMySQL() {
+import (
+	"fmt"
+	"xz-go-frame/global"
+)
 
+func InitMySQL() {
+	m := global.Config.Database.Mysql
+	fmt.Println(m.Dsn())
 }

@@ -30,10 +30,10 @@ ksd:
     paths: 1,2,3
     detail:
       id: 100
-      name: feige
+      name: xiaozai
     map:
-      name: feige
-      age: 30
+      name: xiaozai
+      age: 18
       phone: 3245646
     urls:
       - 1

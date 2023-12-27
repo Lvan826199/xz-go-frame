@@ -531,6 +531,60 @@ func main() {
 
 # 全局global属性配置
 
+配置文件`application.yaml`
+
+```yaml
+# 服务端口的配置
+server:
+  port: 8989
+  context: /
+# 数据库配置
+# "root:123456@tcp(127.0.0.1:3306)/xz-go-frame-db?charset=utf8&parseTime=True&loc=Local", // DSN data source name
+database:
+  mysql:
+    host: 127.0.0.1
+    port: 3306
+    dbname: xz-go-frame-db
+    username: root
+    password: 123456
+    config: charset=utf8&parseTime=True&loc=Local
+# nosql数据的配置
+nosql:
+  redis:
+    host: 127.0.0.1
+    port: 3306
+    password: 123
+    db: 0
+  es:
+    host: 127.0.0.1
+    port: 9300
+    password: 456
+ksd:
+  alipay:
+    appid: 12454545
+    screat: 45587
+    paths: 1,2,3
+    detail:
+      id: 100
+      name: xiaozai
+    map:
+      name: xiaozai
+      age: 18
+      phone: 3245646
+    urls:
+      - 1
+      - 2
+      - 3
+    routers:
+      - id: 100
+        url: /user/
+        filter: 1
+      - id: 200
+        url: /video/
+        filter: 2
+
+```
+
 1、新建global包，在下面新建global.go文件
 
 ```go
@@ -546,7 +600,6 @@ var (
 	Yaml map[string]any
 	Config *parse.Config
 )
-
 ```
 
 
@@ -565,28 +618,244 @@ commons
 **Config.go**
 
 ```go
+package parse
+
+// 配置
+type Config struct {
+	// 数据库
+	Database Database `mapstructure:"database" json:"database" yaml:"database"`
+	Ksd      Ksd      `mapstructure:"ksd" json:"ksd" yaml:"ksd"`
+	NoSQL    NoSQL    `mapstructure:"nosql" json:"nosql" yaml:"nosql"`
+}
+
 ```
 
 **Database.go**
 
 ```go
+/*
+* @Author: 梦无矶小仔
+* @Date:   2023/12/27 17:02
+ */
+package parse
+
+// Database 配置展示
+// database:--------------------------------struct
+//
+//	mysql: --------------------------------struct
+//		host: 127.0.0.1 -------------------field
+//		port: 3306 -------------------field
+//		dbname: xz-go-frame-db -------------------field
+//		username: root -------------------field
+//		password: 123456 -------------------field
+//		config: charset=utf8&parseTime=True&loc=Local -------------------field
+type Database struct {
+	Mysql Mysql `mapstructure:"mysql" json:"mysql" yaml:"mysql"`
+}
+
+type Mysql struct {
+	Host     string `mapstructure:"host" json:"host" yaml:"host"`
+	Port     string    `mapstructure:"port" json:"port" yaml:"port"`
+	Dbname   string `mapstructure:"dbname" json:"dbname" yaml:"dbname"`
+	Username string `mapstructure:"username" json:"username" yaml:"username"`
+	Password string `mapstructure:"password" json:"password" yaml:"password"`
+	Config   string `mapstructure:"config" json:"config" yaml:"config"`
+}
+
 ```
 
 **Ksd.go**
 
 ```go
+/*
+* @Author: 梦无矶小仔
+* @Date:   2023/12/27 17:03
+ */
+package parse
+
+// Ksd 数据格式展示
+/*
+ksd:
+  alipay:
+    appid: 12454545
+    screat: 45587
+    paths: 1,2,3
+    detail:
+      id: 100
+      name: feige
+    map:
+      name: feige
+      age: 30
+      phone: 3245646
+    urls:
+      - 1
+      - 2
+      - 3
+    routers:
+      - id: 100
+        url: /user/
+        filter: 1
+      - id: 200
+        url: /video/
+        filter: 2
+
+
+*/
+type Ksd struct {
+	Alipay Alipay `mapstructure:"alipay" json:"alipay" yaml:"alipay"`
+}
+
+type Alipay struct {
+	Appid   string         `mapstructure:"appid" json:"appid" yaml:"appid"`
+	Screat  string         `mapstructure:"screat" json:"screat" yaml:"screat"`
+	URLS    []string       `mapstructure:"urls" json:"urls" yaml:"urls"`
+	Paths   []string       `mapstructure:"paths" json:"path" yaml:"paths"`
+	Routers []Router       `mapstructure:"routers" json:"routers" yaml:"routers"`
+	Detail  Detail         `mapstructure:"detail" json:"detail" yaml:"detail"`
+	Map     map[string]any `mapstructure:"map" json:"map" yaml:"map"`
+}
+
+type Detail struct {
+	Id   int    `mapstructure:"id" json:"id" yaml:"id"`
+	Name string `mapstructure:"name" json:"name" yaml:"name"`
+}
+
+type Router struct {
+	Id     int    `mapstructure:"id" json:"id" yaml:"id"`
+	Url    string `mapstructure:"url" json:"url" yaml:"url"`
+	Filter string `mapstructure:"filter" json:"filter" yaml:"filter"`
+}
+
 ```
 
 **NoSql.go**
 
 ```go
+/*
+* @Author: 梦无矶小仔
+* @Date:   2023/12/27 17:03
+ */
+package parse
+
+// NoSQL # nosql数据的配置
+// nosql:
+//
+//	redis:
+//		host: 127.0.0.1
+//		port: 3306
+//		password:
+//		db: 0
+type NoSQL struct {
+	Name     string `mapstructure:"name" json:"name" yaml:"name"`
+	Host     string `mapstructure:"host" json:"host" yaml:"host"`
+	Port     int    `mapstructure:"port" json:"port" yaml:"port"`
+	Username string `mapstructure:"username" json:"username" yaml:"username"`
+	Password string `mapstructure:"password" json:"password" yaml:"password"`
+}
+
 ```
 
 
 
+修改`init_viper.go`文件的代码，当配置文件进行修改时，执行回调函数实时更改配置信息
+
+```go
+/*
+* @Author: 梦无矶小仔
+* @Date:   2023/12/27 14:43
+ */
+package initlization
+
+import (
+	"fmt"
+	"github.com/fsnotify/fsnotify"
+	"github.com/spf13/viper"
+	"os"
+	"xz-go-frame/global"
+)
+
+func InitViper() {
+	// 获取项目的执行路径
+	path, err := os.Getwd() // D:\Z_Enviroment\GoWorks\src\xz-go-frame
+	if err != nil {
+		panic(err)
+	}
+	// 初始化一个viper解析配置对象
+	config := viper.New()
+	// 开始设置从哪个目录下去找yaml文件
+	config.AddConfigPath(path + "/configfile") // 设置读取的文件路径
+	// 设置配置文件的名字
+	config.SetConfigName("application") // 设置读取的文件名
+	// 设置配置文件的后缀
+	config.SetConfigType("yaml") // 设置文件类型
+
+	// 尝试进行配置读取
+	if err := config.ReadInConfig(); err != nil {
+		panic(err)
+	}
+	// 监控配置文件的变化
+	config.WatchConfig()
+	// 当配置文件发生变化时，执行回调函数
+	config.OnConfigChange(func(e fsnotify.Event) {
+		fmt.Println("配置文件发生变化：", e.Name)
+		// 把改变的值重新放入到config配置中去
+		if err = config.Unmarshal(&global.Config); err != nil {
+			fmt.Println(err)
+		}
+	})
+
+	// 这里才是把yaml配置文件解析放入到Config对象的过程---map---config
+	if err = config.Unmarshal(&global.Config); err != nil {
+		fmt.Println(err)
+	}
+
+	// 遍历打印文件读取来的内容
+	keys := config.AllKeys()
+	dataMap := make(map[string]any)
+	for _, key := range keys {
+		fmt.Println("yaml存在的key是: "+key+" : ", config.Get(key))
+		dataMap[key] = config.Get(key)
+	}
+
+	global.Yaml = dataMap
+
+
+}
+
+```
 
 
 
+输出结果
+
+```shell
+yaml存在的key是: database.mysql.dbname :  xz-go-frame-db
+yaml存在的key是: nosql.redis.host :  127.0.0.1
+yaml存在的key是: ksd.alipay.paths :  1,2,3
+yaml存在的key是: ksd.alipay.map.phone :  3245646
+yaml存在的key是: database.mysql.host :  127.0.0.1
+yaml存在的key是: database.mysql.username :  root
+yaml存在的key是: nosql.redis.password :  123
+yaml存在的key是: ksd.alipay.map.name :  xiaozai
+yaml存在的key是: ksd.alipay.urls :  [1 2 3]
+yaml存在的key是: nosql.es.port :  9300
+yaml存在的key是: ksd.alipay.routers :  [map[filter:1 id:100 url:/user/] map[filter:2 id:200 url:/video/]]
+yaml存在的key是: server.port :  8989
+yaml存在的key是: server.context :  /
+yaml存在的key是: database.mysql.password :  123456
+yaml存在的key是: database.mysql.config :  charset=utf8&parseTime=True&loc=Local
+yaml存在的key是: nosql.redis.db :  0
+yaml存在的key是: nosql.redis.port :  3306
+yaml存在的key是: ksd.alipay.screat :  45587
+yaml存在的key是: ksd.alipay.detail.id :  100
+yaml存在的key是: ksd.alipay.detail.name :  xiaozai
+yaml存在的key是: ksd.alipay.map.age :  18
+yaml存在的key是: database.mysql.port :  3306
+yaml存在的key是: nosql.es.host :  127.0.0.1
+yaml存在的key是: nosql.es.password :  456
+yaml存在的key是: ksd.alipay.appid :  12454545
+初始化配置文件成功！
+```
 
 
 
@@ -610,6 +879,26 @@ go get -u gorm.io/driver/mysql
 需要自己在本地安装好mysql新建数据库，这里不做演示。
 
 ### 初始化数据库
+
+global.go文件代码修改
+
+```go
+var (
+	Yaml   map[string]any
+	Config *parse.Config
+	XZ_DB  *gorm.DB
+)
+```
+
+commons -> parse -> Database.go新增方法
+
+```go
+func (m *Mysql) Dsn() string {
+	return m.Username + ":" + m.Password + "@tcp(" + m.Host + ":" + m.Port + ")/" + m.Dbname + "?" + m.Config
+}
+```
+
+
 
 在initlization下新建`init_gorm.go`
 
