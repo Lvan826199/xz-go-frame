@@ -424,7 +424,7 @@ func WebRouterInit() {
 显示"我是VideoApi的名字,参数:100  ： xiaozai"
 ```
 
-# 关于项目中的配置viper
+# 配置viper
 
 详见知识点viper库
 
@@ -859,15 +859,13 @@ yaml存在的key是: ksd.alipay.appid :  12454545
 
 
 
-# 关于项目中如何整合GORM框架
+# 整合GORM框架
 
 官方文档：[连接到数据库 | GORM - The fantastic ORM library for Golang, aims to be developer friendly.](https://gorm.io/zh_CN/docs/connecting_to_the_database.html)
 
 https://gorm.io/zh_CN/docs/
 
-## 1、整合gorm框架
-
-### 安装
+## Gorm的安装
 
 ```go
 go get -u gorm.io/gorm
@@ -878,9 +876,9 @@ go get -u gorm.io/driver/mysql
 
 需要自己在本地安装好mysql新建数据库，这里不做演示。
 
-### 初始化数据库
+## 初始化数据库&建表&简单封装
 
-global.go文件代码修改
+### 1、global.go文件代码修改
 
 ```go
 var (
@@ -890,7 +888,7 @@ var (
 )
 ```
 
-commons -> parse -> Database.go新增方法
+### 2、commons -> parse -> Database.go新增方法
 
 ```go
 func (m *Mysql) Dsn() string {
@@ -898,19 +896,139 @@ func (m *Mysql) Dsn() string {
 }
 ```
 
+### 3、新建model文件夹
 
-
-在initlization下新建`init_gorm.go`
+```shell
+model
+	- user
+		- xz_user.go
+```
 
 ```go
+/*
+* @Author: 梦无矶小仔
+* @Date:   2023/12/27 19:03
+ */
+package user
+
+import (
+	"gorm.io/gorm"
+	"time"
+)
+
+type User struct {
+	ID        uint           `gorm:"primaryKey" json:"id"`
+	Name      string         `json:"name"`
+	Account   string         `gorm:"unique" json:"account"`
+	Password  string         `json:"password"`
+	Email     *string        `json:"email"`
+	Age       uint8          `json:"age"`
+	Birthday  time.Time      `json:"birthday"`
+	CreatedAt time.Time      `gorm:"autoUpdateTime" json:"createAt"`
+	UpdatedAt time.Time      `gorm:"autoUpdateTime" json:"updatedAt"`
+	DeletedAt gorm.DeletedAt `gorm:"index"`
+}
+
+// 覆盖生成表
+func (User) TableName() string {
+	return "xz_admin_user"
+}
+```
+
+
+
+### 4、commons ->新建orm->新建registertable.go注册表
+
+```go
+package orm
+
+func RegisterTable() {
+	db := global.XZ_DB
+	// 注册和声明model
+	db.AutoMigrate(&user.User{})
+}
+```
+
+
+
+### 5、在initlization下新建`init_gorm.go`，初始化数据库
+
+```go
+/*
+* @Author: 梦无矶小仔
+* @Date:   2023/12/27 16:32
+ */
+package initlization
+
+import (
+	"fmt"
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
+	"xz-go-frame/commons/orm"
+	"xz-go-frame/global"
+)
+
+func InitMySQL() {
+	m := global.Config.Database.Mysql
+	fmt.Println(m.Dsn())
+	db, err := gorm.Open(mysql.New(mysql.Config{
+		DSN:               m.Dsn(), // DNS data source name
+		DefaultStringSize: 191,     //string类型字段的默认长度
+		//DisableDatetimePrecision: true, // 禁用 datetime 精度，MySQL 5.6 之前的数据库不支持
+		DontSupportRenameIndex:    true,  // 重命名索引时采用删除并新建的方式，MySQL 5.7 之前的数据库和 MariaDB 不支持重命名索引
+		DontSupportRenameColumn:   true,  // 用 `change` 重命名列，MySQL 8 之前的数据库和 MariaDB 不支持重命名列
+		SkipInitializeWithVersion: false, // 根据当前 MySQL 版本自动配置
+	}))
+
+	// 如果报错，请检查数据库配置
+	if err != nil {
+		panic("数据连接出错了" + err.Error()) // 把程序直接阻断，把数据连接好了在启动
+	}
+
+	global.XZ_DB = db // 数据库信息全局变量
+
+	// 初始化数据库
+	orm.RegisterTable()
+
+	fmt.Println("数据库初始化完成,开始运行：", db)
+}
 
 ```
 
 
 
+### 6、修改main.go的代码
+
+```go
+func main() {
+	//  开始初始化配置文件
+	initlization.InitViper()
+	fmt.Println("初始化配置文件成功！")
+	// 初始化数据库
+	initlization.InitMySQL()
+	//开始初始化gin路由服务
+	initlization.WebRouterInit()
+	fmt.Println("启动xz-go-frame后端成功")
+
+}
+```
 
 
 
+### 7、启动服务,控制台显示如下
+
+```shell
+root:123456@tcp(127.0.0.1:3306)/xz-go-frame-db?charset=utf8&parseTime=True&loc=Local
+数据库初始化完成,开始运行： &{0xc0000a6090 <nil> 0 0xc0003ea000 1}
+```
+
+
+
+### 8、数据库中新增了`xz_admin_user表`
+
+![image-20231227191043180](images/image-20231227191043180.png)
+
+到此，你的gorm框架整合完毕，后续进行相关封装
 
 
 
