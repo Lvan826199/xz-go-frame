@@ -1,0 +1,48 @@
+# 服务端口的配置
+server:
+  port: 8989
+  context: /
+# 数据库配置
+# "root:123456@tcp(127.0.0.1:3306)/xz-go-frame-db?charset=utf8&parseTime=True&loc=Local", // DSN data source name
+database:
+  mysql:
+    host: 127.0.0.1
+    port: 3306
+    dbname: xz-go-frame-db
+    username: root
+    password: 123456
+    config: charset=utf8&parseTime=True&loc=Local
+# nosql数据的配置
+nosql:
+  redis:
+    host: 127.0.0.1
+    port: 3306
+    password: 123
+    db: 0
+  es:
+    host: 127.0.0.1
+    port: 9300
+    password: 456
+ksd:
+  alipay:
+    appid: 12454545
+    screat: 45587
+    paths: 1,2,3
+    detail:
+      id: 100
+      name: feige
+    map:
+      name: feige
+      age: 30
+      phone: 3245646
+    urls:
+      - 1
+      - 2
+      - 3
+    routers:
+      - id: 100
+        url: /user/
+        filter: 1
+      - id: 200
+        url: /video/
+        filter: 2

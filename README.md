@@ -68,7 +68,12 @@ go get -u github.com/gin-contrib/sessions
 ```shell
 go get github.com/spf13/viper
 ```
+**GORM框架+MySQL驱动**
 
+```shell
+go get -u gorm.io/gorm
+go get -u gorm.io/driver/mysql
+```
 
 
 # 前端依赖安装

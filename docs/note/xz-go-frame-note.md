@@ -424,60 +424,206 @@ func WebRouterInit() {
 显示"我是VideoApi的名字,参数:100  ： xiaozai"
 ```
 
-
-
-# 关于项目中的配置
+# 关于项目中的配置viper
 
 详见知识点viper库
 
-## 下载viper
+```go
+configfile
+	- application.yaml
+```
+
+## 1、下载viper
 ```go
 go get github.com/spf13/viper
 ```
-## 2.编写一个yaml的配置文件config.yaml
+## 2、编写一个yaml的配置文件application.yaml
 ```yaml
-database:
-  host: 127.0.0.1
-  user: root
-  dbname: test
-  pwd: 123456
+# 数据配置的设定 tab对齐，shift+tab 回退对齐
+mysql:
+  database:
+    host: 127.0.0.1
+    user: root
+    dbname: test
+    pwd: 123456
+# 服务组配置信息
+server:
+  port: 8088
+  cookiname: mysession
 ```
-## 3. main.go
+## 3、基本读取
+
+在initlization包下新建`init_viper.go`文件。
+
 ```go
-package main
- 
+/*
+* @Author: 梦无矶小仔
+* @Date:   2023/12/27 14:43
+ */
+package initlization
+
 import (
-   "fmt"
-   "os"
- 
-   "github.com/spf13/viper"
+	"fmt"
+	"github.com/fsnotify/fsnotify"
+	"github.com/spf13/viper"
+	"os"
 )
- 
-func main() {
-   //获取项目的执行路径
-   path, err := os.Getwd()
-   if err != nil {
-      panic(err)
-   }
- 
-   config := viper.New()
- 
-   config.AddConfigPath(path)     //设置读取的文件路径
-   config.SetConfigName("config") //设置读取的文件名
-   config.SetConfigType("yaml")   //设置文件的类型
-   //尝试进行配置读取
-   if err := config.ReadInConfig(); err != nil {
-      panic(err)
-   }
- 
-   //打印文件读取出来的内容:
-   fmt.Println(config.Get("database.host"))
-   fmt.Println(config.Get("database.user"))
-   fmt.Println(config.Get("database.dbname"))
-   fmt.Println(config.Get("database.pwd"))
- 
+
+func InitViper() {
+	// 获取项目的执行路径
+	path, err := os.Getwd() // D:\Z_Enviroment\GoWorks\src\xz-go-frame
+	if err != nil {
+		panic(err)
+	}
+	// 初始化一个viper解析配置对象
+	config := viper.New()
+	// 开始设置从哪个目录下去找yaml文件
+	config.AddConfigPath(path + "/configfile") // 设置读取的文件路径
+	// 设置配置文件的名字
+	config.SetConfigName("application") // 设置读取的文件名
+	// 设置配置文件的后缀
+	config.SetConfigType("yaml") // 设置文件类型
+
+	// 尝试进行配置读取
+	if err := config.ReadInConfig(); err != nil {
+		panic(err)
+	}
+	// 监控配置文件的变化
+	config.WatchConfig()
+	config.OnConfigChange(func(e fsnotify.Event) {
+		fmt.Println("配置文件发生变化：", e.Name)
+		//// 把改变的值重新放入到config配置中去
+		//if err = config.Unmarshal(&config); err!= nil {
+		//	fmt.Println(err)
+		//}
+	})
+
+	// 打印文件读取出来的内容
+	fmt.Println(len(config.Get("mysql.database.host").(string))) // 9
+	fmt.Println(config.Get("mysql.database.host")) // 127.0.0.1
+	fmt.Println(config.Get("mysql.database.user")) // root
+	fmt.Println(config.Get("mysql.database.dbname")) // test
+	fmt.Println(config.Get("mysql.database.pwd")) // 123456
+	fmt.Println(config.Get("server.port")) // 8888
+	fmt.Println(config.Get("server.cookiname")) // mysession
+
 }
+
 ```
+
+测试代码，修改为如下代码进行测试配置文件的读取。
+
+```go
+func main() {
+	//  开始初始化配置文件
+	initlization.InitViper()
+	fmt.Println("初始化配置文件成功！")
+	// 开始初始化gin路由服务
+	//initlization.WebRouterInit()
+	//fmt.Println("启动xz-go-frame后端成功")
+}
+
+```
+
+
+
+进一步封装配置见代码
+
+# 全局global属性配置
+
+1、新建global包，在下面新建global.go文件
+
+```go
+/*
+* @Author: 梦无矶小仔
+* @Date:   2023/12/27 16:29
+ */
+package global
+
+import "gorm.io/gorm"
+
+var (
+	Yaml map[string]any
+	Config *parse.Config
+)
+
+```
+
+
+
+2、新建commons包，在下面新建相关配置包和文件进行属性管理。
+
+```go
+commons
+	- parse
+		- Config.go
+		- Database.go
+		- Ksd.go
+		- NoSql.go
+```
+
+**Config.go**
+
+```go
+```
+
+**Database.go**
+
+```go
+```
+
+**Ksd.go**
+
+```go
+```
+
+**NoSql.go**
+
+```go
+```
+
+
+
+
+
+
+
+
+
+# 关于项目中如何整合GORM框架
+
+官方文档：[连接到数据库 | GORM - The fantastic ORM library for Golang, aims to be developer friendly.](https://gorm.io/zh_CN/docs/connecting_to_the_database.html)
+
+https://gorm.io/zh_CN/docs/
+
+## 1、整合gorm框架
+
+### 安装
+
+```go
+go get -u gorm.io/gorm
+go get -u gorm.io/driver/mysql
+```
+
+编写main.go来连接数据库
+
+需要自己在本地安装好mysql新建数据库，这里不做演示。
+
+### 初始化数据库
+
+在initlization下新建`init_gorm.go`
+
+```go
+
+```
+
+
+
+
+
+
+
+
 
 # 知识点
 
@@ -559,7 +705,7 @@ func main() {
 
 在上面的例子中，我们首先设置了配置文件的名称和类型，并告诉 Viper 在当前目录中查找配置文件。然后我们尝试读取配置文件，并在成功加载后，使用 `viper.Get` 和 `viper.GetString` 方法来获取配置项的值。我们还使用了 `viper.AutomaticEnv` 来自动读取环境变量。
 
-你需要有一个名为 `config.yaml` 的配置文件在你的工作目录中，内容可能如下：
+你需要有一个名为 `config.yaml` 的配置文件在你的工作目录中，内容如下：
 
 ```yaml
 item:
@@ -569,3 +715,8 @@ item:
 此外，如果你有一个环境变量 `PREFIX_ITEM_KEY`，Viper 也可以读取它的值。
 
 这只是 Viper 的一些基本功能。Viper 还支持更复杂的配置结构、配置文件热重载、远程配置等特性。
+
+
+
+# OS库
+
