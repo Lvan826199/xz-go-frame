@@ -28,5 +28,7 @@ type Mysql struct {
 }
 
 func (m *Mysql) Dsn() string {
+	// 官方教程 https://gorm.io/zh_CN/docs/connecting_to_the_database.html
+	// # "root:123456@tcp(127.0.0.1:3306)/xz-go-frame-db?charset=utf8&parseTime=True&loc=Local", // DSN data source name
 	return m.Username + ":" + m.Password + "@tcp(" + m.Host + ":" + m.Port + ")/" + m.Dbname + "?" + m.Config
 }
