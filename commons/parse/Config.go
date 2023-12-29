@@ -4,7 +4,7 @@
  */
 package parse
 
-// 配置
+// 配置文件解析的总入口
 type Config struct {
 	// 数据库
 	Database Database `mapstructure:"database" json:"database" yaml:"database"`

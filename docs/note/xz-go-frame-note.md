@@ -1032,6 +1032,14 @@ root:123456@tcp(127.0.0.1:3306)/xz-go-frame-db?charset=utf8&parseTime=True&loc=L
 
 
 
+# 构建前端
+
+[Vue3.0（一）：创建Vue3项目_利用vue3.0做简单项目-CSDN博客](https://blog.csdn.net/qq_23215957/article/details/115229225)
+
+
+
+
+
 # 知识点
 
 记录框架涉及到的知识点
