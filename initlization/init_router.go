@@ -5,9 +5,10 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
-	"xz-go-frame/api/login"
+	"xz-go-frame/api/v1/login"
 	"xz-go-frame/middle"
 	"xz-go-frame/router/bbs"
+	"xz-go-frame/router/code"
 	"xz-go-frame/router/video"
 )
 
@@ -23,6 +24,9 @@ func WebRouterInit() {
 	bbsRouter := bbs.BbsRouter{}
 	videoRouter := video.VideoRouter{}
 	loginApi := login.LoginApi{}
+	// 验证码接口
+	codeRouter := code.CodeRouter{}
+	codeRouter.InitCodeRouter(rootRouter)
 
 	// 登录路由
 	rootRouter.GET("/login", loginApi.Login)

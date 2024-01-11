@@ -2,7 +2,7 @@ package video
 
 import (
 	"github.com/gin-gonic/gin"
-	"xz-go-frame/api/video"
+	"xz-go-frame/api/v1/video"
 )
 
 type VideoRouter struct {

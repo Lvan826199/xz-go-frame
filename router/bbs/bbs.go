@@ -2,7 +2,7 @@ package bbs
 
 import (
 	"github.com/gin-gonic/gin"
-	"xz-go-frame/api/bbs"
+	"xz-go-frame/api/v1/bbs"
 )
 
 type BbsRouter struct {

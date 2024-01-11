@@ -75,6 +75,13 @@ go get -u gorm.io/gorm
 go get -u gorm.io/driver/mysql
 ```
 
+**验证码模块**
+
+官网 : https://github.com/mojocn/base64Captcha
+
+```shell
+go get github.com/mojocn/base64Captcha
+```
 
 # 前端依赖安装
 

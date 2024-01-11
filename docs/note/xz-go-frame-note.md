@@ -11,9 +11,9 @@ Goland创建go文件添加作者信息：
 - 右侧填入模板
 
 - ```go
-  /*
-  * @Author: 梦无矶小仔
-  * @Date:   ${DATE} ${TIME}
+  /* 
+  @Author: 梦无矶小仔
+  @Date:   ${DATE} ${TIME}
   */
   package ${GO_PACKAGE_NAME}
   ```
@@ -1032,13 +1032,1209 @@ root:123456@tcp(127.0.0.1:3306)/xz-go-frame-db?charset=utf8&parseTime=True&loc=L
 
 
 
+# 层级封装
+
+api层我新建了一个v1文件夹，把之前的代码放到了这个v1文件夹下，起到api版本管理的作用。
+
+## service层
+
+这一层主要是操作数据库，给api层提供数据
+
+新建service文件夹在根目录
+
+```shell
+service
+	- user
+		- xz_user.go
+```
+
+
+
+xz_user.go代码如下
+
+```go
+/*
+* @Author: 梦无矶小仔
+* @Date:   2024/1/11 14:11
+ */
+package user
+
+import (
+	"xz-go-frame/global"
+	"xz-go-frame/model/user"
+)
+
+// 对用户表的数据层处理
+type UserService struct{}
+
+// nil 是go空值处理，必须是指针类型
+func (service *UserService) GetUserByAccount(account string) (user *user.User, err error) {
+	// 根据account进行查询
+	err = global.XZ_DB.Where("account = ?", account).First(&user).Error
+	if err != nil {
+		return nil, err
+	} else {
+		return user, nil
+	}
+}
+
+```
+
+
+
+路由router层和api层之后会加入enter.go文件，起到初始化聚合加载的作用。
+
+
+
+# 关于Http.status响应状态码
+
+### 1、 HTTP Status Code 1xx 请求信息
+
+这一组[状态码](https://so.csdn.net/so/search?q=状态码&spm=1001.2101.3001.7020)表明这是一个临时性响应。此响应仅由状态行和可选的HTTP头组成，以一个空行结尾。由于HTTP／1.0未定义任何1xx状态码，所以不要向HTTP／1.0客户端发送1xx响应。
+
+| Http状态码    | Http Status Code                                             | Http状态码含义中文说明 |
+| :------------ | :----------------------------------------------------------- | :--------------------- |
+| ***\*100\**** | [100 Continue](https://seo.juziseo.com/doc/http_code/100)    | 请继续请求             |
+| ***\*101\**** | [101 Switching Protocols](https://seo.juziseo.com/doc/http_code/101) | 请切换协议             |
+| ***\*102\**** | [102 Processing](https://seo.juziseo.com/doc/http_code/102)  | 将继续执行请求         |
+
+
+
+### 2、 HTTP Status Code 2xx 成功状态
+
+这一组状态码表明客户端的请求已经被服务器端成功接收并正确解析。
+
+| Http状态码    | Http Status Code                                             | Http状态码含义中文说明                  |
+| :------------ | :----------------------------------------------------------- | :-------------------------------------- |
+| ***\*200\**** | [200 OK](https://seo.juziseo.com/doc/http_code/200)          | 请求成功                                |
+| ***\*201\**** | [201 Created](https://seo.juziseo.com/doc/http_code/201)     | 请求已被接受，等待资源响应              |
+| ***\*202\**** | [202 Accepted](https://seo.juziseo.com/doc/http_code/202)    | 请求已被接受，但尚未处理                |
+| ***\*203\**** | [203 Non-Authoritative Information](https://seo.juziseo.com/doc/http_code/203) | 请求已成功处理，结果来自第三方拷贝      |
+| ***\*204\**** | [204 No Content](https://seo.juziseo.com/doc/http_code/204)  | 请求已成功处理，但无返回内容            |
+| ***\*205\**** | [205 Reset Content](https://seo.juziseo.com/doc/http_code/205) | 请求已成功处理，但需重置内容            |
+| ***\*206\**** | [206 Partial Content](https://seo.juziseo.com/doc/http_code/206) | 请求已成功处理，但仅返回了部分内容      |
+| ***\*207\**** | [207 Multi-Status](https://seo.juziseo.com/doc/http_code/207) | 请求已成功处理，返回了多个状态的XML消息 |
+| ***\*208\**** | [208 Already Reported](https://seo.juziseo.com/doc/http_code/208) | 响应已发送                              |
+| ***\*226\**** | [226 IM Used](https://seo.juziseo.com/doc/http_code/226)     | 已完成响应                              |
+
+### 3、 HTTP Status Code 3xx 重定向状态
+
+这一组状态码表示客户端需要采取更进一步的行动来完成请求。通常，这些状态码用来重定向，后续的请求地址（重定向目标）在本次响应的Location域中指明。
+
+| Http状态码    | Http Status Code                                             | Http状态码含义中文说明         |
+| :------------ | :----------------------------------------------------------- | :----------------------------- |
+| ***\*300\**** | [300 Multiple Choices](https://seo.juziseo.com/doc/http_code/300) | 返回多条重定向供选择           |
+| ***\*301\**** | [301 Moved Permanently](https://seo.juziseo.com/doc/http_code/301) | 永久重定向                     |
+| ***\*302\**** | [302 Found](https://seo.juziseo.com/doc/http_code/302)       | 临时重定向                     |
+| ***\*303\**** | [303 See Other](https://seo.juziseo.com/doc/http_code/303)   | 当前请求的资源在其它地址       |
+| ***\*304\**** | [304 Not Modified](https://seo.juziseo.com/doc/http_code/304) | 请求资源与本地缓存相同，未修改 |
+| ***\*305\**** | [305 Use Proxy](https://seo.juziseo.com/doc/http_code/305)   | 必须通过代理访问               |
+| ***\*306\**** | [306 (已废弃)Switch Proxy](https://seo.juziseo.com/doc/http_code/306) | (已废弃)请切换代理             |
+| ***\*307\**** | [307 Temporary Redirect](https://seo.juziseo.com/doc/http_code/307) | 临时重定向，同302              |
+| ***\*308\**** | [308 Permanent Redirect](https://seo.juziseo.com/doc/http_code/308) | 永久重定向，且禁止改变http方法 |
+
+### 4、 HTTP Status Code 4xx 客户端错误
+
+这一组状态码表示客户端的请求存在错误，导致服务器无法处理。除非响应的是一个HEAD请求，否则服务器就应该返回一个解释当前错误状况的实体，以及这是临时的还是永久性的状况。这些状态码适用于任何请求方法。浏览器应当向用户显示任何包含在此类错误响应中的实体内容。
+
+| Http状态码    | Http Status Code                                             | Http状态码含义中文说明               |
+| :------------ | :----------------------------------------------------------- | :----------------------------------- |
+| ***\*400\**** | [400 Bad Request](https://seo.juziseo.com/doc/http_code/400) | 请求错误，通常是访问的域名未绑定引起 |
+| ***\*401\**** | [401 Unauthorized](https://seo.juziseo.com/doc/http_code/401) | 需要身份认证验证                     |
+| ***\*402\**** | [402 Payment Required](https://seo.juziseo.com/doc/http_code/402) | -                                    |
+| ***\*403\**** | [403 Forbidden](https://seo.juziseo.com/doc/http_code/403)   | 禁止访问                             |
+| ***\*404\**** | [404 Not Found](https://seo.juziseo.com/doc/http_code/404)   | 请求的内容未找到或已删除             |
+| ***\*405\**** | [405 Method Not Allowed](https://seo.juziseo.com/doc/http_code/405) | 不允许的请求方法                     |
+| ***\*406\**** | [406 Not Acceptable](https://seo.juziseo.com/doc/http_code/406) | 无法响应，因资源无法满足客户端条件   |
+| ***\*407\**** | [407 Proxy Authentication Required](https://seo.juziseo.com/doc/http_code/407) | 要求通过代理的身份认证               |
+| ***\*408\**** | [408 Request Timeout](https://seo.juziseo.com/doc/http_code/408) | 请求超时                             |
+| ***\*409\**** | [409 Conflict](https://seo.juziseo.com/doc/http_code/409)    | 存在冲突                             |
+| ***\*410\**** | [410 Gone](https://seo.juziseo.com/doc/http_code/410)        | 资源已经不存在(过去存在)             |
+| ***\*411\**** | [411 Length Required](https://seo.juziseo.com/doc/http_code/411) | 无法处理该请求                       |
+| ***\*412\**** | [412 Precondition Failed](https://seo.juziseo.com/doc/http_code/412) | 请求条件错误                         |
+| ***\*413\**** | [413 Payload Too Large](https://seo.juziseo.com/doc/http_code/413) | 请求的实体过大                       |
+| ***\*414\**** | [414 Request-URI Too Long](https://seo.juziseo.com/doc/http_code/414) | 请求的URI过长                        |
+| ***\*415\**** | [415 Unsupported Media Type](https://seo.juziseo.com/doc/http_code/415) | 无法处理的媒体格式                   |
+| ***\*416\**** | [416 Range Not Satisfiable](https://seo.juziseo.com/doc/http_code/416) | 请求的范围无效                       |
+| ***\*417\**** | [417 Expectation Failed](https://seo.juziseo.com/doc/http_code/417) | 无法满足的Expect                     |
+| ***\*418\**** | [418 I'm a teapot](https://seo.juziseo.com/doc/http_code/418) | 愚人节笑话                           |
+| ***\*421\**** | [421 There are too many connections from your internet address](https://seo.juziseo.com/doc/http_code/421) | 连接数超限                           |
+| ***\*422\**** | [422 Unprocessable Entity](https://seo.juziseo.com/doc/http_code/422) | 请求的语义错误                       |
+| ***\*423\**** | [423 Locked](https://seo.juziseo.com/doc/http_code/423)      | 当前资源被锁定                       |
+| ***\*424\**** | [424 Failed Dependency](https://seo.juziseo.com/doc/http_code/424) | 当前请求失败                         |
+| ***\*425\**** | [425 Unordered Collection](https://seo.juziseo.com/doc/http_code/425) | 未知                                 |
+| ***\*426\**** | [426 Upgrade Required](https://seo.juziseo.com/doc/http_code/426) | 请切换到TLS/1.0                      |
+| ***\*428\**** | [428 Precondition Required](https://seo.juziseo.com/doc/http_code/428) | 请求未带条件                         |
+| ***\*429\**** | [429 Too Many Requests](https://seo.juziseo.com/doc/http_code/429) | 并发请求过多                         |
+| ***\*431\**** | [431 Request Header Fields Too Large](https://seo.juziseo.com/doc/http_code/431) | 请求头过大                           |
+| ***\*449\**** | [449 Retry With](https://seo.juziseo.com/doc/http_code/449)  | 请重试                               |
+| ***\*451\**** | [451 Unavailable For Legal Reasons](https://seo.juziseo.com/doc/http_code/451) | 访问被拒绝（法律的要求）             |
+| ***\*499\**** | [499 Client Closed Request](https://seo.juziseo.com/doc/http_code/499) | 客户端主动关闭了连接                 |
+
+### 5、 HTTP Status Code 5xx 服务器错误状态
+
+这一组状态码说明服务器在处理请求的过程中有错误或者异常状态发生，也有可能是服务器意识到以当前的软硬件资源无法完成对请求的处理。除非这是一个HEAD请求，否则服务器应当包含一个解释当前错误状态以及这个状况是临时的还是永久的解释信息实体。浏览器应当向用户展示任何在当前响应中被包含的实体。
+
+| Http状态码    | Http Status Code                                             | Http状态码含义中文说明   |
+| :------------ | :----------------------------------------------------------- | :----------------------- |
+| ***\*500\**** | [500 Internal Server Error](https://seo.juziseo.com/doc/http_code/500) | 服务器端程序错误         |
+| ***\*501\**** | [501 Not Implemented](https://seo.juziseo.com/doc/http_code/501) | 服务器不支持的请求方法   |
+| ***\*502\**** | [502 Bad Gateway](https://seo.juziseo.com/doc/http_code/502) | 网关无响应               |
+| ***\*503\**** | [503 Service Unavailable](https://seo.juziseo.com/doc/http_code/503) | 服务器端临时错误         |
+| ***\*504\**** | [504 Gateway Timeout](https://seo.juziseo.com/doc/http_code/504) | 网关超时                 |
+| ***\*505\**** | [505 HTTP Version Not Supported](https://seo.juziseo.com/doc/http_code/505) | 服务器不支持的HTTP版本   |
+| ***\*506\**** | [506 Variant Also Negotiates](https://seo.juziseo.com/doc/http_code/506) | 服务器内部配置错误       |
+| ***\*507\**** | [507 Insufficient Storage](https://seo.juziseo.com/doc/http_code/507) | 服务器无法存储请求       |
+| ***\*508\**** | [508 Loop Detected](https://seo.juziseo.com/doc/http_code/508) | 服务器因死循环而终止操作 |
+| ***\*509\**** | [509 Bandwidth Limit Exceeded](https://seo.juziseo.com/doc/http_code/509) | 服务器带宽限制           |
+| ***\*510\**** | [510 Not Extended](https://seo.juziseo.com/doc/http_code/510) | 获取资源策略未被满足     |
+| ***\*511\**** | [511 Network Authentication Required](https://seo.juziseo.com/doc/http_code/511) | 需验证以许可连接         |
+| ***\*599\**** | [599 Network Connect Timeout Error](https://seo.juziseo.com/doc/http_code/599) | 网络连接超时             |
+
+上面的这些状态全部都是描述请求和响应的整个过程的状态。不包含业务的状态。我举例例子
+
+```go
+c.JSON(http.StatusOK, "你输入的账号和密码有误!!!")
+```
+
+在开发中一个接口：成功只有一种情况，但是失败和错误就有N种情况。那么这些N情况的返回到底选择什么样子状态就变得非常的重要。你接下来就困难选择症（你不知道到底选择什么？），而且你在这些状态找不到适合的，所以业务的状态处理不应该选择web框架中提供的。因为这些状态根本就不是让你来做业务错误的状态监控，别人专门去web请求和响应的状态的监听。
+
+那么怎么处理。通过自己的方式来定义状态。但是所有的返回都用：http.StatusOK
+
+- 只要请求和响应是正常的，无论正确和错误，我们都用http.StatusOK来返回，但是区分和界定用自己定义的状态来定义业务、
+
+这也就是为什么我们要做自定义返回的意义和价值了.
+
+
+
+
+
+# JWT
+
+`JSON Web Token(JWT)`是一个常用语HTTP的客户端和服务端间进行身份认证和鉴权的标准规范，使用JWT可以允许我们在用户和服务器之间传递安全可靠的信息。
+
+在开始学习**[JWT](https://link.zhihu.com/?target=https%3A//jwt.io/)**之前，我们可以先了解下早期的几种方案。
+
+
+
+### **token、cookie、session的区别**
+
+**Cookie**
+
+Cookie总是保存在客户端中，按在客户端中的存储位置，可分为`内存Cookie`和`硬盘Cookie`。
+
+内存Cookie由浏览器维护，保存在内存中，浏览器关闭后就消失了，其存在时间是短暂的。硬盘Cookie保存在硬盘里，有一个过期时间，除非用户手工清理或到了过期时间，硬盘Cookie不会被删除，其存在时间是长期的。所以，按存在时间，可分为`非持久Cookie和持久Cookie`。
+
+cookie 是一个非常具体的东西，指的就是浏览器里面能永久存储的一种数据，仅仅是浏览器实现的一种数据存储功能。
+
+`cookie由服务器生成，发送给浏览器`，浏览器把cookie以key-value形式保存到某个目录下的文本文件内，下一次请求同一网站时会把该cookie发送给服务器。由于cookie是存在客户端上的，所以浏览器加入了一些限制确保cookie不会被恶意使用，同时不会占据太多磁盘空间，所以每个域的cookie数量是有限的。
+
+**Session**
+
+Session字面意思是会话，主要用来标识自己的身份。比如在无状态的api服务在多次请求数据库时，如何知道是同一个用户，这个就可以通过session的机制，服务器要知道当前发请求给自己的是谁
+
+为了区分客户端请求，`服务端会给具体的客户端生成身份标识session`，然后客户端每次向服务器发请求的时候，都带上这个“身份标识”，服务器就知道这个请求来自于谁了。
+
+至于客户端如何保存该标识，可以有很多方式，对于浏览器而言，一般都是使用`cookie`的方式
+
+服务器使用session把用户信息临时保存了服务器上，用户离开网站就会销毁，这种凭证存储方式相对于cookie来说更加安全，但是session会有一个缺陷: 如果web服务器做了负载均衡，那么下一个操作请求到了另一台服务器的时候session会丢失。
+
+因此，通常企业里会使用`redis,memcached`缓存中间件来实现session的共享，此时web服务器就是一个完全无状态的存在，所有的用户凭证可以通过共享session的方式存取，当前session的过期和销毁机制需要用户做控制。
+
+**Token**
+
+token的意思是“令牌”，是用户身份的验证方式，最简单的token组成: `uid(用户唯一标识)`+`time(当前时间戳)`+`sign(签名,由token的前几位+盐以哈希算法压缩成一定长度的十六进制字符串)`，同时还可以将不变的参数也放进token
+
+这里我们主要想讲的就是`Json Web Token`，也就是本篇的主题:JWT
+
+### **Json-Web-Token(JWT)介绍**
+
+一般而言，用户注册登陆后会生成一个jwt token返回给浏览器，浏览器向服务端请求数据时携带`token`，服务器端使用`signature`中定义的方式进行解码，进而对token进行解析和验证。
+
+### **JWT Token组成部分**
+
+![img](images/v2-dea40372d962a09ac050a6d17e9dd2b2_720w.jpeg)
+
+- header: 用来指定使用的算法(HMAC SHA256 RSA)和token类型(如JWT)
+- payload: 包含声明(要求)，声明通常是用户信息或其他数据的声明，比如用户id，名称，邮箱等. 声明可分为三种: registered,public,private
+- signature: 用来保证JWT的真实性，可以使用不同的算法
+
+**header**
+
+```text
+{
+    "alg": "HS256",
+    "typ": "JWT"
+}
+```
+
+对上面的json进行base64编码即可得到JWT的第一个部分
+
+**payload**
+
+- registered claims: 预定义的声明，通常会放置一些预定义字段，比如过期时间，主题等(iss:issuer,exp:expiration time,sub:subject,aud:audience)
+- public claims: 可以设置公开定义的字段
+- private claims: 用于统一使用他们的各方之间的共享信息
+
+```text
+{
+    "sub": "xxx-api",
+    "name": "bgbiao.top",
+    "admin": true
+}
+```
+
+对payload部分的json进行base64编码后即可得到JWT的第二个部分
+
+`注意:` 不要在header和payload中放置敏感信息，除非信息本身已经做过脱敏处理
+
+**signature**
+
+为了得到签名部分，必须有编码过的header和payload，以及一个秘钥，签名算法使用header中指定的那个，然后对其进行签名即可
+
+```
+HMACSHA256(base64UrlEncode(header)+"."+base64UrlEncode(payload),secret)
+```
+
+签名是`用于验证消息在传递过程中有没有被更改`，并且，对于使用私钥签名的token，它还可以验证JWT的发送方是否为它所称的发送方。
+
+在**[jwt.io](https://link.zhihu.com/?target=https%3A//jwt.io/)**网站中，提供了一些JWT token的编码，验证以及生成jwt的工具。
+
+下图就是一个典型的jwt-token的组成部分。
+
+![img](images/v2-becbc64838d787ca7683b257958f1d21_720w.webp)
+
+### **什么时候用JWT**
+
+- Authorization(授权): 典型场景，用户请求的token中包含了该令牌允许的路由，服务和资源。单点登录其实就是现在广泛使用JWT的一个特性
+- Information Exchange(信息交换): 对于安全的在各方之间传输信息而言，JSON Web Tokens无疑是一种很好的方式.因为JWTs可以被签名，例如，用公钥/私钥对，你可以确定发送人就是它们所说的那个人。另外，由于签名是使用头和有效负载计算的，您还可以验证内容没有被篡改
+
+### **JWT(Json Web Tokens)是如何工作的**
+
+![img](images/v2-82c5f75466da70b96bfd238e0f2924b3_720w.jpeg)
+
+所以，基本上整个过程分为两个阶段，第一个阶段，客户端向服务端获取token，第二阶段，客户端带着该token去请求相关的资源.
+
+通常比较重要的是，服务端如何根据指定的规则进行token的生成。
+
+在认证的时候，当用户用他们的凭证成功登录以后，一个JSON Web Token将会被返回。
+
+此后，token就是用户凭证了，你必须非常小心以防止出现安全问题。
+
+一般而言，你保存令牌的时候不应该超过你所需要它的时间。
+
+无论何时用户想要访问受保护的路由或者资源的时候，用户代理（通常是浏览器）都应该带上JWT，典型的，通常放在Authorization header中，用Bearer schema: `Authorization: Bearer <token>`
+
+服务器上的受保护的路由将会检查Authorization header中的JWT是否有效，如果有效，则用户可以访问受保护的资源。如果JWT包含足够多的必需的数据，那么就可以减少对某些操作的数据库查询的需要，尽管可能并不总是如此。
+
+如果token是在授权头（Authorization header）中发送的，那么跨源资源共享(CORS)将不会成为问题，因为它不使用cookie.
+
+![img](images/v2-50bb47d56a98d247ab5909a0fc4ddcc1_720w.jpeg)
+
+- 客户端向授权接口请求授权
+- 服务端授权后返回一个access token给客户端
+- 客户端使用access token访问受保护的资源
+
+### **基于Token的身份认证和基于服务器的身份认证**
+
+**1.基于服务器的认证**
+
+前面说到过session，cookie以及token的区别，在之前传统的做法就是基于存储在服务器上的session来做用户的身份认证，但是通常会有如下问题:
+
+- Sessions: 认证通过后需要将用户的session数据保存在内存中，随着认证用户的增加，内存开销会大
+- 扩展性: 由于session存储在内存中，扩展性会受限，虽然后期可以使用redis,memcached来缓存数据
+- CORS: 当多个终端访问同一份数据时，可能会遇到禁止请求的问题
+- CSRF: 用户容易受到CSRF攻击
+
+**2.Session和JWT Token的异同**
+
+都可以存储用户相关信息，但是session存储在服务端，JWT存储在客户端
+
+![img](images/v2-1f9a28101bc26d90fdc057ba04310caa_720w.jpeg)
+
+**3.基于Token的身份认证如何工作**
+
+基于Token的身份认证是无状态的，服务器或者session中不会存储任何用户信息.(很好的解决了共享session的问题)
+
+- 用户携带用户名和密码请求获取token(接口数据中可使用appId,appKey)
+- 服务端校验用户凭证，并返回用户或客户端一个Token
+- 客户端存储token,并在请求头中携带Token
+- 服务端校验token并返回数据
+
+```
+注意:
+```
+
+- 随后客户端的每次请求都需要使用token
+- token应该放在header中
+- 需要将服务器设置为接收所有域的请求: `Access-Control-Allow-Origin: *`
+
+**4.用Token的好处**
+
+- 无状态和可扩展性
+- 安全: 防止CSRF攻击;token过期重新认证
+
+**5.JWT和OAuth的区别**
+
+- 1.OAuth2是一种授权框架 ，JWT是一种认证协议
+- 2.无论使用哪种方式切记用HTTPS来保证数据的安全性
+- 3.OAuth2用在`使用第三方账号登录的情况`(比如使用weibo, qq, github登录某个app)，而`JWT是用在前后端分离`, 需要简单的对后台API进行保护时使用
+
+### **使用Gin框架集成JWT**
+
+在Golang语言中，**[jwt-go](https://link.zhihu.com/?target=https%3A//github.com/dgrijalva/jwt-go)**库提供了一些jwt编码和验证的工具，因此我们很容易使用该库来实现token认证。
+
+另外，我们也知道**[gin](https://link.zhihu.com/?target=https%3A//github.com/gin-gonic/gin)**框架中支持用户自定义middleware，我们可以很好的将jwt相关的逻辑封装在middleware中，然后对具体的接口进行认证。
+
+下载组件
+
+官网： https://github.com/dgrijalva/jwt-go 、 https://github.com/golang-jwt/jwt
+
+```go
+go get -u github.com/golang-jwt/jwt/v5
+```
+
+## token的时限多长才合适？
+
+使用JWT时，一个让人纠结的问题就是“Token的时限多长才合适？”。
+
+- 面对极度敏感的信息，如钱或银行数据，那就根本不要在本地存放Token，只存放在内存中。这样，随着App关闭，Token也就没有了。（一次性token）
+- 此外，将Token的时限设置成较短的时间（如1小时）。
+- 对于那些虽然敏感但跟钱没关系，如健身App的进度，这个时间可以设置得长一点，如1个月。
+- 对于像游戏或社交类App，时间可以更长些，半年或1年。
+
+并且，文章还建议增加一个“Token吊销”过程来应对Token被盗的情形，类似于当发现银行卡或电话卡丢失，用户主动挂失的过程。
+
+```go
+github.com/songzhibin97/gkit
+```
+
+
+
+# 集成验证码功能
+
+- 短信验证码的重要性一：作为身份证明。
+  - 在生活中，短信验证码随处可见，网络产品在开发过程中，几乎都会加入短信验证模块，如网站、app用户注册、安全登录、找回密码、绑定手机、手机银行转账等等，这就是短信验证码的重要性。
+- 短信验证码的重要性二：提高注册信息的真实性，防止恶意注册。
+  - 与以往的数字验证、图片验证相比，短信验证码更能防止恶意用户注册。一些朋友可能知道，市场上一些不法之徒使用作弊器等工具恶意注册、攻击企业网站，导致网站服务器无法承载而瘫痪，严重时会影响企业网站的运作。而且短信验证码的应用，能很好地识别用户身份的真实性，一个用户只能注册一个账户，有效地避免了恶意注册。
+
+### 1:  下载验证码的组件
+
+- 官网：https://github.com/mojocn/base64Captcha
+
+- 下载模块：
+
+  ```
+  go get github.com/mojocn/base64Captcha
+  ```
+
+### 2: 定义生成验证码的接口
+
+```shell
+api -> v1 -> code -> code.go
+```
+
+```go
+/*
+@Author: 梦无矶小仔
+@Date:   2024/1/11 14:32
+*/
+
+package code
+
+import (
+	"github.com/gin-gonic/gin"
+	"github.com/mojocn/base64Captcha"
+	"xz-go-frame/commons/response"
+)
+
+// 验证码生成
+type CodeApi struct{}
+
+// 1、定义验证的store -- 默认是存储在go的内存中
+var store = base64Captcha.DefaultMemStore
+
+// 2、创建验证码
+func (api *CodeApi) CreateCaptcha(c *gin.Context) {
+	// 2、生成验证码的类型，这个默认类型是一个数字的验证码
+	driver := &base64Captcha.DriverDigit{Height: 70, Width: 240, Length: 6, MaxSkew: 0.8, DotCount: 120}
+	// 3、调用NewCaptcha方法生成具体的验证码对象
+	captcha := base64Captcha.NewCaptcha(driver, store)
+	// 4、调用Generate()生成具体base64验证码的图片地址和id
+	// id 是用于后续校验使用，后续根据id和用户输入的验证码去调用store的get方法，就可以得到你输入的验证码是否正确，正确的true，错误的false
+	id, baseURL, _, err := captcha.Generate()
+	if err != nil {
+		response.Fail(40001, "验证生成错误!", c)
+		return
+	}
+
+	response.Ok(map[string]any{"id": id, "baseURL": baseURL}, c)
+}
+
+//func (api *CodeApi) CreateCaptcha(c *gin.Context) {
+//	// 2：生成验证码的类型,这个默认类型是一个数字的验证码
+//	driver := &base64Captcha.DriverString{
+//		Height:          40,
+//		Width:           240,
+//		NoiseCount:      0,
+//		ShowLineOptions: 2 | 2,
+//		Length:          6,
+//		Source:          "1234567890qwertyuioplkjhgfdsazxcvbnm",
+//		BgColor: &color.RGBA{
+//			R: 3,
+//			G: 102,
+//			B: 214,
+//			A: 125,
+//		},
+//		Fonts: []string{"wqy-microhei.ttc"},
+//	}
+//	// 3：调用NewCaptcha方法生成具体验证码对象
+//	captcha := base64Captcha.NewCaptcha(driver, store)
+//	// 4: 调用Generate()生成具体base64验证码的图片地址，和id
+//	// id 是用于后续校验使用，后续根据id和用户输入的验证码去调用store的get方法，就可以得到你输入的验证码是否正确，正确true,错误false
+//	id, baseURL, err := captcha.Generate()
+//
+//	if err != nil {
+//		response.Fail(40001, "验证生成错误", c)
+//		return
+//	}
+//
+//	response.Ok(map[string]any{"id": id, "baseURL": baseURL}, c)
+//}
+
+// 3、开始校验用户输入的验证码是否是正确的
+func (api *CodeApi) VerifyCaptcha(c *gin.Context) {
+
+	type BaseCaptcha struct {
+		Id   string `json:"id"`
+		Code string `json:"code"`
+	}
+	baseCaptcha := BaseCaptcha{}
+	// 开始把用户输入的id和code进行绑定
+	err2 := c.ShouldBindQuery(&baseCaptcha)
+
+	if err2 != nil {
+		response.Fail(402, "参数绑定失败", c)
+		return
+	}
+
+	// 开始校验验证码是否正确
+	verify := store.Verify(baseCaptcha.Id, baseCaptcha.Code,true)
+	
+	if verify {
+		response.Ok("success", c)
+	} else {
+		response.Fail(403, "您输入的验证码有误！", c)
+	}
+	
+
+}
+
+```
+
+
+
+封装了一个响应方法，`commons->response->response.go`
+
+```go
+/*
+@Author: 梦无矶小仔
+@Date:   2024/1/11 14:53
+*/
+package response
+
+import (
+	"github.com/gin-gonic/gin"
+	"net/http"
+)
+
+type Response struct {
+	Code int         `json:"code"`
+	Msg  string      `json:"msg"`
+	Data interface{} `json:"data"`
+}
+
+func Result(code int, msg string, data interface{}, c *gin.Context) {
+	c.JSON(http.StatusOK, Response{
+		Code: code,
+		Msg:  msg,
+		Data: data,
+	})
+}
+
+var (
+	CODE = 20000
+	MSG  = "success"
+)
+
+/*
+Ok
+请求响应成功
+*/
+func Ok(data any, c *gin.Context) {
+	Result(CODE, MSG, data, c)
+}
+
+/*
+Fail
+请求响应失败（无响应数据）
+*/
+func Fail(code int,msg string,c *gin.Context) {
+	Result(code, msg, map[string]any{}, c)
+}
+
+/*
+FailWithData
+请求响应失败（有响应数据）
+*/
+func FailWithData(code int,msg string,data any,c *gin.Context) {
+	Result(code, msg, data, c)
+}
+
+```
+
+### 3:定义生成验证码的router
+
+router -> code -> code.go
+
+```go
+/*
+@Author: 梦无矶小仔
+@Date:   2024/1/11 16:23
+*/
+package code
+
+import (
+	"github.com/gin-gonic/gin"
+	"xz-go-frame/api/v1/code"
+)
+
+type CodeRouter struct{}
+
+func (e *CodeRouter) InitCodeRouter(Router *gin.Engine) {
+	codeApi := code.CodeApi{}
+	// 这个路由多了一个对post\put请求的中间件处理，而这个中间件做了一些对post和put参数的处理和一些公共信息的处理
+	coureseRouter := Router.Group("code")
+	{
+		coureseRouter.GET("get", codeApi.CreateCaptcha)
+		coureseRouter.GET("verify", codeApi.VerifyCaptcha)
+	}
+	
+}
+
+```
+
+
+
+### 4:注册路由
+
+```go
+// 验证码接口
+codeRouter := code.CodeRouter{}
+codeRouter.InitCodeRouter(rootRouter)
+```
+
+到这一步，就可以去测试验证码功能了。
+
+### 5：跨域请求处理
+
+在之后和前端联调，需要设置跨域，所以还要新增跨域请求的代码。
+
+
+
+
+
 # 构建前端
 
-[Vue3.0（一）：创建Vue3项目_利用vue3.0做简单项目-CSDN博客](https://blog.csdn.net/qq_23215957/article/details/115229225)
+## 1、 打开 vite的官网
+
+https://vitejs.cn/
+
+## 2、开始构建项目
+
+> ​	兼容性注意
+>
+> Vite 需要 [Node.js](https://nodejs.org/en/) 版本 14.18+，16+。然而，有些模板需要依赖更高的 Node 版本才能正常运行，当你的包管理器发出警告时，请注意升级你的 Node 版本。
+
+使用nodejs 下载一些工具，由于国内访问很多外网的限制，会出现下载失败的问题,这个时候，需要配置路径为阿里的免费 registry，如下：
+
+官方链接：[npmmirror 镜像站](https://www.npmmirror.com/)
+
+```shell
+1、临时使用
+npm --registry https://registry.npmmirror.com install express
+2、永久使用
+npm config set registry https://registry.npmmirror.com
+
+-- 配置后可通过下面方式来验证是否成功
+npm config get registry
+-- 或npm info express
+
+# 如果需要恢复成原来的官方地址只需要执行如下命令
+npm config set registry https://registry.npmjs.org
+
+#使用cnpm
+#安装阿里的cnpm，然后在使用时直接将npm命令替换成cnpm命令即可（淘宝的已经停止解析）
+npm install -g cnpm --registry=https://registry.npmmirror.com
+```
+
+
+
+## 3、进入目标文件夹下执行如下命令
+
+```js
+npm create vite@latest
+```
+
+当前下载的是vite@5.1.0
+
+## 4、勾选内容如下
+
+![image-20240110155723715](images/image-20240110155723715.png)
+
+```shell
+D:\Y_WebProject>npm create vite@latest
+√ Project name: ... xz-vue-admin
+√ Select a framework: » Vue
+√ Select a variant: » Customize with create-vue ↗
+Need to install the following packages:
+  create-vue@3.9.1
+Ok to proceed? (y) y
+[##################] - reify:create-vue: http fetch GET 200 https://cdn.npmmirror.com/packages/create-vue/3.9.1/create- 
+
+```
+
+vue.js相关配置勾选，蓝色的就是我选择的，左右箭头可以进行选择，回车表示确认。
+
+![image-20240110160254149](images/image-20240110160254149.png)
+
+
+
+## 5、整体命令如下
+
+```bash
+D:\Y_WebProject>npm create vite@latest
+√ Project name: ... xz-vue-admin
+√ Select a framework: » Vue
+√ Select a variant: » Customize with create-vue ↗
+Need to install the following packages:
+  create-vue@3.9.1
+Ok to proceed? (y) y
+
+Vue.js - The Progressive JavaScript Framework
+
+√ 是否使用 TypeScript 语法？ ... 否 / 是
+√ 是否启用 JSX 支持？ ... 否 / 是
+√ 是否引入 Vue Router 进行单页面应用开发？ ... 否 / 是
+√ 是否引入 Pinia 用于状态管理？ ... 否 / 是
+√ 是否引入 Vitest 用于单元测试？ ... 否 / 是
+√ 是否要引入一款端到端（End to End）测试工具？ » 不需要
+√ 是否引入 ESLint 用于代码质量检测？ ... 否 / 是
+√ 是否引入 Prettier 用于代码格式化？ ... 否 / 是
+
+正在构建项目 D:\Y_WebProject\xz-vue-admin...
+
+项目构建完成，可执行以下命令：
+
+  cd xz-vue-admin
+  npm install
+  npm run format
+  npm run dev
+```
+
+此时可以看到我们的项目创建好啦
+
+![image-20240110160601617](images/image-20240110160601617.png)
+
+## 6、下载依赖
+
+cd到我们创建好的项目中，执行命令下载相关依赖
+
+```bash
+cd xz-vue-admin
+npm install
+```
+
+显示如下表示下载依赖完成
+
+```shell
+D:\Y_WebProject>cd xz-vue-admin
+
+D:\Y_WebProject\xz-vue-admin>npm install
+
+added 152 packages in 2m
+```
+
+## 7、启动项目
+
+```shell
+npm run dev
+```
+
+显示如下
+
+```shell
+  VITE v5.0.11  ready in 438 ms
+
+  ➜  Local:   http://localhost:5173/
+  ➜  Network: use --host to expose
+  ➜  press h + enter to show help
+```
+
+## 8、访问项目
+
+访问本地的5173端口，显示页面如下表示你的项目构建成功
+
+![image-20240110162618137](images/image-20240110162618137.png)
+
+
+
+## 9、同步到自己的仓库进行版本管理即可。
+
+修改项目根目录下的`.git/config`文件内容，把需要同步的仓库链接都填进去，这样可以多个仓库同时同步。
+
+```yaml
+[core]
+	repositoryformatversion = 0
+	filemode = false
+	bare = false
+	logallrefupdates = true
+	symlinks = false
+	ignorecase = true
+[remote "origin"]
+	# github
+	url = https://github.com/Lvan826199/xz-vue-admin.git
+	# gitee
+	url = https://gitee.com/xiaozai-van-liu/xz-vue-admin.git
+	fetch = +refs/heads/*:refs/remotes/origin/*
+[branch "master"]
+	remote = origin
+	merge = refs/heads/master
+
+```
 
 
 
 
+
+
+
+# 验证码对接文档
+
+
+
+## 01、验证码的重要性
+
+- 
+
+## 02、Go整合验证码
+
+- 官网：https://github.com/mojocn/base64Captcha
+
+- 下载模块：
+
+  ```
+  go get github.com/mojocn/base64Captcha
+  ```
+
+- 验证码模块
+
+  ```go
+  package code
+  
+  import (
+  	"fmt"
+  	beego "github.com/beego/beego/v2/server/web"
+  	"github.com/mojocn/base64Captcha"
+  	"strings"
+  )
+  
+  // 官网：https://github.com/mojocn/base64Captcha
+  // go get github.com/mojocn/base64Captcha
+  // Captcha 图形验证码
+  
+  var store = base64Captcha.DefaultMemStore
+  
+  type CodeController struct {
+  	beego.Controller
+  }
+  
+  func If(condition bool, trueVal, falseVal interface{}) interface{} {
+  	if condition {
+  		return trueVal
+  	} else {
+  		return falseVal
+  	}
+  }
+  
+  // /获取验证码
+  func (c *CodeController) Captcha() {
+  	type CaptchaResult struct {
+  		Id         string `json:"captchaId"`
+  		Base64Blob string `json:"img"`
+  	}
+  	/*
+  		driverString := base64Captcha.DriverString{
+  			Height:          30,
+  			Width:           60,
+  			NoiseCount:      0,
+  			ShowLineOptions: 2 | 2,
+  			Length:          4,
+  			Source:          "1234567890qwertyuioplkjhgfdsazxcvbnm",
+  			BgColor: &color.RGBA{
+  				R: 3,
+  				G: 102,
+  				B: 214,
+  				A: 125,
+  			},
+  			Fonts: []string{"wqy-microhei.ttc"},
+  		}
+  
+  		driver := driverString.ConvertFonts()
+  	*/
+      
+  	driver := base64Captcha.DefaultDriverDigit
+      // 验证码的长度
+  	driver.Length = 4
+      // 生成验证码
+  	captcha := base64Captcha.NewCaptcha(driver, store)
+      // 验证码的id和验证码的图片信息以及错误信息
+  	id, b64s, err := captcha.Generate()
+      // 开始数据返回
+      detail := make(map[string]string, 2)
+      
+  	if err != nil {
+  		// 开始返回封装数据返回
+          detail["captchaId"] = 0
+          detail["img"] = ""
+          detail["code"] = 601
+      }else{
+  		// 开始返回封装数据返回
+          detail["captchaId"] = id
+          detail["img"] = b64s
+          detail["code"] = 200
+      }
+  	c.Data["json"] = detail
+  	c.ServeJSON()
+  }
+  ```
+
+- 定义路由
+
+  ```go
+  // 验证码
+  beego.CtrlPost("/code/captcha", (*code.CodeController).Captcha)
+  ```
+
+- 启动查看效果
+
+  ```html
+  <img src="/code/captcha">
+  ```
+
+  
+
+## 03、实战案例：验证码使用到登录和注册
+
+- 1：下载验证码模块组件
+
+- 2：通过验证码返回的captchaid和用户输入的code和手机号码调用短信发送接口
+- 3：通过captchaid和code进行验证比较看是否输入的正确的，如果正确返回success,否则返回错误
+- 4：思考
+
+具体查看视频和代码。核心js和文件
+
+login.js
+
+```js
+var vue = new Vue({
+    el:"#app",
+    data:{
+        // 控制登录按钮是否可以登录.
+        btndisabled:true,
+        // 60s倒计时
+        sendcount:60,
+        // 默认显示发送短信
+        sendflag:true,
+        // 用于清楚倒计时
+        sendTimer:null,
+        // 倒计时状态
+        sendmsg:"发送短信",
+        // 验证码
+        codeimg:"",
+        // 登录的数据
+        user:{
+            phone:"15074816437",
+            phonecode:"",
+            captchaId:""
+        }
+    },
+    created(){
+      this.handleCaptchaCode();
+    },
+    methods:{
+        toLogin(){
+
+            if(!this.user.phone){
+                alert("请输入手机号码")
+                this.$refs.phoneRef.focus();
+                return;
+            }
+
+            if(!this.user.phonecode){
+                alert("请输入手机短信码")
+                this.$refs.phonecodeRef.focus();
+                return;
+            }
+
+            // 正则校验手机号码合法性
+            // if(!/phonerege/.test(phone)){
+            //     alert("请输入合法的手机号码!")
+            //     this.$refs.phoneRef.focus();
+            //     return;
+            // }
+
+            axios.post("/api/logined",this.user).then(res=>{
+                if(res.data.code == 200){
+                    window.location.href = "/"
+                }else{
+                    if(res.data.code == 601){  // 601: 短信验证码输入有误
+                        alert(res.data.message)
+                        this.$refs.phonecodeRef.focus();
+                        this.user.phonecode = "";
+                    }else if(res.data.code == 602){ // 602: 手机号码不存在
+                        alert(res.data.message)
+                        this.$refs.phoneRef.focus();
+                        this.user.phone = "";
+                    }
+                }
+            })
+        },
+
+        // 发送短信
+        handleSendPhone(){
+            var phone = this.user.phone;
+            if(!phone){
+                alert("请正确的输入手机号码!")
+                this.$refs.phoneRef.focus();
+                return;
+            }
+            // 正则校验手机号码合法性 phonerege = ?
+            // if(!/phonerege/.test(phone)){
+            //     alert("请输入合法的手机号码!")
+            //     this.$refs.phoneRef.focus();
+            //     return;
+            // }
+
+            // 更改前端的状态
+            this.handleChangeSendMsg();
+            // 发送短信-------发送短信接口
+            axios.post("/api/sendsms",{"phone":phone}).then(res=>{
+                if(res.data == "success"){
+                    alert("短信发送成功!!!!");
+                    // 打开登录按钮。--同时禁止发送短信按钮
+                    this.btndisabled = false;
+                    // 恢复短信发送的状态
+                    this.sendmsg = "发送短信";
+                    this.sendcount = 60;
+                    // 关闭定时任务
+                    if(this.sendTimer)clearInterval(this.sendTimer);
+                }else{
+                    alert(res.data)
+                }
+            })
+        },
+
+        // 更改文案和倒计时
+        handleChangeSendMsg(){
+            this.sendmsg = this.sendcount+"s";
+            if(this.sendTimer)clearInterval(this.sendTimer);
+            // 开始倒计时状态
+            this.sendflag = false;
+            // 开启倒计时
+            this.sendTimer = setInterval(()=>{
+                if(this.sendcount<=1){
+                    // 关闭倒计时
+                    this.sendflag = true;
+                    clearInterval(this.sendTimer);
+                    this.sendmsg = "发送短信"
+                    this.sendcount = 60;
+                    return;
+                }
+                this.sendcount--;
+                this.sendmsg = this.sendcount+"s";
+            },1000)
+        },
+
+        handleCaptchaCode(){
+            axios.post("/code/captcha").then(res=>{
+                this.codeimg = res.data.img;
+                this.user.captchaId = res.data.captchaId;
+            })
+        },
+    }
+})
+```
+
+
+
+# 实现登录和验证码的校验
+
+### 1: 配置登录路由和首页
+
+如果报错记得安装一下：sass
+
+```sh
+pnpm install sass sass-loader
+```
+
+```vue
+<template>
+    <div class="login-box">
+        <div class="loginbox">
+            <div class="login-wrap">
+                <h1 class="header">{{ title }}</h1>
+                <form action="#">
+                    <div class="ksd-el-items"><input type="text" class="ksd-login-input"  placeholder="请输入账号"></div>
+                    <div class="ksd-el-items"><input type="text" class="ksd-login-input" placeholder="请输入密码"></div>
+                    <div class="ksd-el-items"><input type="text" class="ksd-login-input" placeholder="请输入验证码"></div>
+                    <div class="ksd-el-items"><input type="button" class="ksd-login-btn" value="登录"></div>            
+                </form>
+            </div>
+        </div>
+        <div class="imgbox">
+            <img src="../assets/imgs/login_left.svg" alt="">    
+        </div>
+    </div>
+</template>
+
+<script setup>
+import { ref } from 'vue';
+const title = ref("我是一个登录页面")
+</script>
+
+<style scoped lang="scss">
+    .ksd-el-items{margin: 15px 0;}
+    .ksd-login-input{border:1px solid #eee;padding:12px 8px;width: 100%;box-sizing: border-box;outline: none;border-radius: 4px;}
+
+    .ksd-login-btn{border:1px solid #eee;padding:12px 8px;width: 100%;box-sizing: border-box;
+        background:#2196F3;color:#fff;border-radius:4px;cursor: pointer;}
+        .ksd-login-btn:hover{background:#1789e7;}
+    .login-box{
+        display: flex;
+        flex-wrap: wrap;
+        background: url("../assets/imgs/login_background.jpg");
+        background-size:cover;
+        .loginbox{
+            width: 50%;height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            .header{margin-bottom: 10px;}
+            .login-wrap{
+                width: 500px;
+                height: 444px;
+                padding:20px 100px;
+                box-sizing: border-box;
+                border-radius: 8px;
+                box-shadow: 0 0 10px #fafafa;
+                background: rgba(255,255,255,0.6);
+                text-align: center;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+            }
+        }
+        .imgbox{
+            width: 50%;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+        }
+    }
+</style>
+```
+
+2：配置路由
+
+```js
+import { createRouter, createWebHistory } from 'vue-router'
+
+const router = createRouter({
+  history: createWebHistory(import.meta.env.BASE_URL),
+  routes: [
+    {
+      path: '/',
+      name: 'index',
+      component: () => import('../views/index.vue')
+    },
+    {
+      path: '/login',
+      name: 'login',
+      component: () => import('../views/login.vue')
+    }
+  ]
+})
+
+export default router
+
+```
+
+3: 访问login.vue
+
+http://localhost:8777/login
+
+![image-20230714220145203](images/image-20230714220145203.png)
+
+
+
+4： 调用验证码的接口和登录接口
+
+安装axios的异步请求组件
+
+```js
+pnpm install axios
+```
+
+开始调用接口?
+
+```js
+import { onMounted, ref } from 'vue';
+import axios from 'axios'
+const title = ref("我是一个登录页面")
+
+// 根据axios官方文档开始调用生成验证码的接口
+const handleGetCapatcha = async () => {
+    const resp = await axios.get("http://localhost:8989/code/get")
+    console.log('resp', resp)
+}
+
+// 用生命周期去加载生成验证码
+onMounted(() => {
+    handleGetCapatcha()
+})
+
+```
+
+![image-20230714220815155](images/image-20230714220815155.png)
+
+上面的错误很明显的告诉，你浏览器http://localhost:8777/login，服务的接口地址：http://localhost:8989/code/get 
+
+电脑 localhost 代表本机 127.0.0.1
+
+- 8777 你服务端口
+- /login  其实就是服务里某个请求资源
+
+—A酒店 广州127.0.01
+
+- 8989  就是你酒店某个房子号
+- /code/get  可能
+
+
+
+
+
+# 目录
 
 # 知识点
 
