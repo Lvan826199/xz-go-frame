@@ -83,6 +83,20 @@ go get -u gorm.io/driver/mysql
 go get github.com/mojocn/base64Captcha
 ```
 
+**JWT模块**
+
+官网：https://github.com/golang-jwt/jwt
+
+```shell
+go get -u github.com/golang-jwt/jwt/v5
+```
+
+**防缓存击穿singleflight**
+
+```shell
+go get golang.org/x/sync/singleflightGroup
+```
+
 # 前端依赖安装
 
 

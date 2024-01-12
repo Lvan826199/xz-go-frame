@@ -8,7 +8,7 @@ import (
 type VideoRouter struct {
 }
 
-func (videoRouter VideoRouter) InitVideoRouter(group *gin.RouterGroup) {
+func (videoRouter *VideoRouter) InitVideoRouter(group *gin.RouterGroup) {
 	// 帖子路由
 	videoApi := video.Video{}
 	videoGroup := group.Group("video")

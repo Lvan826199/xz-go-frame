@@ -1209,208 +1209,6 @@ c.JSON(http.StatusOK, "你输入的账号和密码有误!!!")
 
 
 
-# JWT
-
-`JSON Web Token(JWT)`是一个常用语HTTP的客户端和服务端间进行身份认证和鉴权的标准规范，使用JWT可以允许我们在用户和服务器之间传递安全可靠的信息。
-
-在开始学习**[JWT](https://link.zhihu.com/?target=https%3A//jwt.io/)**之前，我们可以先了解下早期的几种方案。
-
-
-
-### **token、cookie、session的区别**
-
-**Cookie**
-
-Cookie总是保存在客户端中，按在客户端中的存储位置，可分为`内存Cookie`和`硬盘Cookie`。
-
-内存Cookie由浏览器维护，保存在内存中，浏览器关闭后就消失了，其存在时间是短暂的。硬盘Cookie保存在硬盘里，有一个过期时间，除非用户手工清理或到了过期时间，硬盘Cookie不会被删除，其存在时间是长期的。所以，按存在时间，可分为`非持久Cookie和持久Cookie`。
-
-cookie 是一个非常具体的东西，指的就是浏览器里面能永久存储的一种数据，仅仅是浏览器实现的一种数据存储功能。
-
-`cookie由服务器生成，发送给浏览器`，浏览器把cookie以key-value形式保存到某个目录下的文本文件内，下一次请求同一网站时会把该cookie发送给服务器。由于cookie是存在客户端上的，所以浏览器加入了一些限制确保cookie不会被恶意使用，同时不会占据太多磁盘空间，所以每个域的cookie数量是有限的。
-
-**Session**
-
-Session字面意思是会话，主要用来标识自己的身份。比如在无状态的api服务在多次请求数据库时，如何知道是同一个用户，这个就可以通过session的机制，服务器要知道当前发请求给自己的是谁
-
-为了区分客户端请求，`服务端会给具体的客户端生成身份标识session`，然后客户端每次向服务器发请求的时候，都带上这个“身份标识”，服务器就知道这个请求来自于谁了。
-
-至于客户端如何保存该标识，可以有很多方式，对于浏览器而言，一般都是使用`cookie`的方式
-
-服务器使用session把用户信息临时保存了服务器上，用户离开网站就会销毁，这种凭证存储方式相对于cookie来说更加安全，但是session会有一个缺陷: 如果web服务器做了负载均衡，那么下一个操作请求到了另一台服务器的时候session会丢失。
-
-因此，通常企业里会使用`redis,memcached`缓存中间件来实现session的共享，此时web服务器就是一个完全无状态的存在，所有的用户凭证可以通过共享session的方式存取，当前session的过期和销毁机制需要用户做控制。
-
-**Token**
-
-token的意思是“令牌”，是用户身份的验证方式，最简单的token组成: `uid(用户唯一标识)`+`time(当前时间戳)`+`sign(签名,由token的前几位+盐以哈希算法压缩成一定长度的十六进制字符串)`，同时还可以将不变的参数也放进token
-
-这里我们主要想讲的就是`Json Web Token`，也就是本篇的主题:JWT
-
-### **Json-Web-Token(JWT)介绍**
-
-一般而言，用户注册登陆后会生成一个jwt token返回给浏览器，浏览器向服务端请求数据时携带`token`，服务器端使用`signature`中定义的方式进行解码，进而对token进行解析和验证。
-
-### **JWT Token组成部分**
-
-![img](images/v2-dea40372d962a09ac050a6d17e9dd2b2_720w.jpeg)
-
-- header: 用来指定使用的算法(HMAC SHA256 RSA)和token类型(如JWT)
-- payload: 包含声明(要求)，声明通常是用户信息或其他数据的声明，比如用户id，名称，邮箱等. 声明可分为三种: registered,public,private
-- signature: 用来保证JWT的真实性，可以使用不同的算法
-
-**header**
-
-```text
-{
-    "alg": "HS256",
-    "typ": "JWT"
-}
-```
-
-对上面的json进行base64编码即可得到JWT的第一个部分
-
-**payload**
-
-- registered claims: 预定义的声明，通常会放置一些预定义字段，比如过期时间，主题等(iss:issuer,exp:expiration time,sub:subject,aud:audience)
-- public claims: 可以设置公开定义的字段
-- private claims: 用于统一使用他们的各方之间的共享信息
-
-```text
-{
-    "sub": "xxx-api",
-    "name": "bgbiao.top",
-    "admin": true
-}
-```
-
-对payload部分的json进行base64编码后即可得到JWT的第二个部分
-
-`注意:` 不要在header和payload中放置敏感信息，除非信息本身已经做过脱敏处理
-
-**signature**
-
-为了得到签名部分，必须有编码过的header和payload，以及一个秘钥，签名算法使用header中指定的那个，然后对其进行签名即可
-
-```
-HMACSHA256(base64UrlEncode(header)+"."+base64UrlEncode(payload),secret)
-```
-
-签名是`用于验证消息在传递过程中有没有被更改`，并且，对于使用私钥签名的token，它还可以验证JWT的发送方是否为它所称的发送方。
-
-在**[jwt.io](https://link.zhihu.com/?target=https%3A//jwt.io/)**网站中，提供了一些JWT token的编码，验证以及生成jwt的工具。
-
-下图就是一个典型的jwt-token的组成部分。
-
-![img](images/v2-becbc64838d787ca7683b257958f1d21_720w.webp)
-
-### **什么时候用JWT**
-
-- Authorization(授权): 典型场景，用户请求的token中包含了该令牌允许的路由，服务和资源。单点登录其实就是现在广泛使用JWT的一个特性
-- Information Exchange(信息交换): 对于安全的在各方之间传输信息而言，JSON Web Tokens无疑是一种很好的方式.因为JWTs可以被签名，例如，用公钥/私钥对，你可以确定发送人就是它们所说的那个人。另外，由于签名是使用头和有效负载计算的，您还可以验证内容没有被篡改
-
-### **JWT(Json Web Tokens)是如何工作的**
-
-![img](images/v2-82c5f75466da70b96bfd238e0f2924b3_720w.jpeg)
-
-所以，基本上整个过程分为两个阶段，第一个阶段，客户端向服务端获取token，第二阶段，客户端带着该token去请求相关的资源.
-
-通常比较重要的是，服务端如何根据指定的规则进行token的生成。
-
-在认证的时候，当用户用他们的凭证成功登录以后，一个JSON Web Token将会被返回。
-
-此后，token就是用户凭证了，你必须非常小心以防止出现安全问题。
-
-一般而言，你保存令牌的时候不应该超过你所需要它的时间。
-
-无论何时用户想要访问受保护的路由或者资源的时候，用户代理（通常是浏览器）都应该带上JWT，典型的，通常放在Authorization header中，用Bearer schema: `Authorization: Bearer <token>`
-
-服务器上的受保护的路由将会检查Authorization header中的JWT是否有效，如果有效，则用户可以访问受保护的资源。如果JWT包含足够多的必需的数据，那么就可以减少对某些操作的数据库查询的需要，尽管可能并不总是如此。
-
-如果token是在授权头（Authorization header）中发送的，那么跨源资源共享(CORS)将不会成为问题，因为它不使用cookie.
-
-![img](images/v2-50bb47d56a98d247ab5909a0fc4ddcc1_720w.jpeg)
-
-- 客户端向授权接口请求授权
-- 服务端授权后返回一个access token给客户端
-- 客户端使用access token访问受保护的资源
-
-### **基于Token的身份认证和基于服务器的身份认证**
-
-**1.基于服务器的认证**
-
-前面说到过session，cookie以及token的区别，在之前传统的做法就是基于存储在服务器上的session来做用户的身份认证，但是通常会有如下问题:
-
-- Sessions: 认证通过后需要将用户的session数据保存在内存中，随着认证用户的增加，内存开销会大
-- 扩展性: 由于session存储在内存中，扩展性会受限，虽然后期可以使用redis,memcached来缓存数据
-- CORS: 当多个终端访问同一份数据时，可能会遇到禁止请求的问题
-- CSRF: 用户容易受到CSRF攻击
-
-**2.Session和JWT Token的异同**
-
-都可以存储用户相关信息，但是session存储在服务端，JWT存储在客户端
-
-![img](images/v2-1f9a28101bc26d90fdc057ba04310caa_720w.jpeg)
-
-**3.基于Token的身份认证如何工作**
-
-基于Token的身份认证是无状态的，服务器或者session中不会存储任何用户信息.(很好的解决了共享session的问题)
-
-- 用户携带用户名和密码请求获取token(接口数据中可使用appId,appKey)
-- 服务端校验用户凭证，并返回用户或客户端一个Token
-- 客户端存储token,并在请求头中携带Token
-- 服务端校验token并返回数据
-
-```
-注意:
-```
-
-- 随后客户端的每次请求都需要使用token
-- token应该放在header中
-- 需要将服务器设置为接收所有域的请求: `Access-Control-Allow-Origin: *`
-
-**4.用Token的好处**
-
-- 无状态和可扩展性
-- 安全: 防止CSRF攻击;token过期重新认证
-
-**5.JWT和OAuth的区别**
-
-- 1.OAuth2是一种授权框架 ，JWT是一种认证协议
-- 2.无论使用哪种方式切记用HTTPS来保证数据的安全性
-- 3.OAuth2用在`使用第三方账号登录的情况`(比如使用weibo, qq, github登录某个app)，而`JWT是用在前后端分离`, 需要简单的对后台API进行保护时使用
-
-### **使用Gin框架集成JWT**
-
-在Golang语言中，**[jwt-go](https://link.zhihu.com/?target=https%3A//github.com/dgrijalva/jwt-go)**库提供了一些jwt编码和验证的工具，因此我们很容易使用该库来实现token认证。
-
-另外，我们也知道**[gin](https://link.zhihu.com/?target=https%3A//github.com/gin-gonic/gin)**框架中支持用户自定义middleware，我们可以很好的将jwt相关的逻辑封装在middleware中，然后对具体的接口进行认证。
-
-下载组件
-
-官网： https://github.com/dgrijalva/jwt-go 、 https://github.com/golang-jwt/jwt
-
-```go
-go get -u github.com/golang-jwt/jwt/v5
-```
-
-## token的时限多长才合适？
-
-使用JWT时，一个让人纠结的问题就是“Token的时限多长才合适？”。
-
-- 面对极度敏感的信息，如钱或银行数据，那就根本不要在本地存放Token，只存放在内存中。这样，随着App关闭，Token也就没有了。（一次性token）
-- 此外，将Token的时限设置成较短的时间（如1小时）。
-- 对于那些虽然敏感但跟钱没关系，如健身App的进度，这个时间可以设置得长一点，如1个月。
-- 对于像游戏或社交类App，时间可以更长些，半年或1年。
-
-并且，文章还建议增加一个“Token吊销”过程来应对Token被盗的情形，类似于当发现银行卡或电话卡丢失，用户主动挂失的过程。
-
-```go
-github.com/songzhibin97/gkit
-```
-
-
-
 # 集成验证码功能
 
 - 短信验证码的重要性一：作为身份证明。
@@ -1624,8 +1422,6 @@ func (e *CodeRouter) InitCodeRouter(Router *gin.Engine) {
 
 ```
 
-
-
 ### 4:注册路由
 
 ```go
@@ -1639,6 +1435,44 @@ codeRouter.InitCodeRouter(rootRouter)
 ### 5：跨域请求处理
 
 在之后和前端联调，需要设置跨域，所以还要新增跨域请求的代码。
+
+`common -> filter -> cors.go`
+
+```go
+/*
+@Author: 梦无矶小仔
+@Date:   2024/1/11 17:28
+*/
+package filter
+
+import (
+	"github.com/gin-gonic/gin"
+	"net/http"
+)
+
+func Cors() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		method := c.Request.Method
+		// 注意这一行，不能配置为通配符“*”号 比如未来写域名或者你想授权的域名都可以
+		//c.Header("Access-Control-Allow-Origin", "http://localhost:8088")
+		c.Header("Access-Control-Allow-Origin", "*")
+		// 响应头表示是否可以将对请求的响应暴露给页面。返回true则可以，其他值均不可以。
+		c.Header("Access-Control-Allow-Credentials", "true")
+		// 表示此次请求中可以使用那些header字段
+		c.Header("Access-Control-Allow-Headers", "Access-Control-Allow-Headers,Cookie, Content-Length,Origin,cache-control,X-Requested-With, Content-Type, Accept, Authorization, Token, Timestamp, UserId") // 我们自定义的header字段都需要在这里声明
+		// 表示此次请求中可以使用那些请求方法 GET/POST(多个使用逗号隔开)
+		c.Header("Access-Control-Allow-Methods", "POST, GET, OPTIONS,DELETE,PUT")
+		// 放行所有OPTIONS方法
+		if method == "OPTIONS" {
+			//c.AbortWithStatus(http.StatusNoContent)
+			c.AbortWithStatus(http.StatusOK)
+		}
+		// 处理请求
+		c.Next()
+	}
+}
+
+```
 
 
 
@@ -1814,125 +1648,6 @@ npm run dev
 ```
 
 
-
-
-
-
-
-# 验证码对接文档
-
-
-
-## 01、验证码的重要性
-
-- 
-
-## 02、Go整合验证码
-
-- 官网：https://github.com/mojocn/base64Captcha
-
-- 下载模块：
-
-  ```
-  go get github.com/mojocn/base64Captcha
-  ```
-
-- 验证码模块
-
-  ```go
-  package code
-  
-  import (
-  	"fmt"
-  	beego "github.com/beego/beego/v2/server/web"
-  	"github.com/mojocn/base64Captcha"
-  	"strings"
-  )
-  
-  // 官网：https://github.com/mojocn/base64Captcha
-  // go get github.com/mojocn/base64Captcha
-  // Captcha 图形验证码
-  
-  var store = base64Captcha.DefaultMemStore
-  
-  type CodeController struct {
-  	beego.Controller
-  }
-  
-  func If(condition bool, trueVal, falseVal interface{}) interface{} {
-  	if condition {
-  		return trueVal
-  	} else {
-  		return falseVal
-  	}
-  }
-  
-  // /获取验证码
-  func (c *CodeController) Captcha() {
-  	type CaptchaResult struct {
-  		Id         string `json:"captchaId"`
-  		Base64Blob string `json:"img"`
-  	}
-  	/*
-  		driverString := base64Captcha.DriverString{
-  			Height:          30,
-  			Width:           60,
-  			NoiseCount:      0,
-  			ShowLineOptions: 2 | 2,
-  			Length:          4,
-  			Source:          "1234567890qwertyuioplkjhgfdsazxcvbnm",
-  			BgColor: &color.RGBA{
-  				R: 3,
-  				G: 102,
-  				B: 214,
-  				A: 125,
-  			},
-  			Fonts: []string{"wqy-microhei.ttc"},
-  		}
-  
-  		driver := driverString.ConvertFonts()
-  	*/
-      
-  	driver := base64Captcha.DefaultDriverDigit
-      // 验证码的长度
-  	driver.Length = 4
-      // 生成验证码
-  	captcha := base64Captcha.NewCaptcha(driver, store)
-      // 验证码的id和验证码的图片信息以及错误信息
-  	id, b64s, err := captcha.Generate()
-      // 开始数据返回
-      detail := make(map[string]string, 2)
-      
-  	if err != nil {
-  		// 开始返回封装数据返回
-          detail["captchaId"] = 0
-          detail["img"] = ""
-          detail["code"] = 601
-      }else{
-  		// 开始返回封装数据返回
-          detail["captchaId"] = id
-          detail["img"] = b64s
-          detail["code"] = 200
-      }
-  	c.Data["json"] = detail
-  	c.ServeJSON()
-  }
-  ```
-
-- 定义路由
-
-  ```go
-  // 验证码
-  beego.CtrlPost("/code/captcha", (*code.CodeController).Captcha)
-  ```
-
-- 启动查看效果
-
-  ```html
-  <img src="/code/captcha">
-  ```
-
-  
 
 ## 03、实战案例：验证码使用到登录和注册
 
@@ -2232,6 +1947,310 @@ onMounted(() => {
 
 
 
+# JWT
+
+`JSON Web Token(JWT)`是一个常用语HTTP的客户端和服务端间进行身份认证和鉴权的标准规范，使用JWT可以允许我们在用户和服务器之间传递安全可靠的信息。
+
+在开始学习**[JWT](https://link.zhihu.com/?target=https%3A//jwt.io/)**之前，我们可以先了解下早期的几种方案。
+
+
+
+### **token、cookie、session的区别**
+
+**Cookie**
+
+Cookie总是保存在客户端中，按在客户端中的存储位置，可分为`内存Cookie`和`硬盘Cookie`。
+
+内存Cookie由浏览器维护，保存在内存中，浏览器关闭后就消失了，其存在时间是短暂的。硬盘Cookie保存在硬盘里，有一个过期时间，除非用户手工清理或到了过期时间，硬盘Cookie不会被删除，其存在时间是长期的。所以，按存在时间，可分为`非持久Cookie和持久Cookie`。
+
+cookie 是一个非常具体的东西，指的就是浏览器里面能永久存储的一种数据，仅仅是浏览器实现的一种数据存储功能。
+
+`cookie由服务器生成，发送给浏览器`，浏览器把cookie以key-value形式保存到某个目录下的文本文件内，下一次请求同一网站时会把该cookie发送给服务器。由于cookie是存在客户端上的，所以浏览器加入了一些限制确保cookie不会被恶意使用，同时不会占据太多磁盘空间，所以每个域的cookie数量是有限的。
+
+**Session**
+
+Session字面意思是会话，主要用来标识自己的身份。比如在无状态的api服务在多次请求数据库时，如何知道是同一个用户，这个就可以通过session的机制，服务器要知道当前发请求给自己的是谁
+
+为了区分客户端请求，`服务端会给具体的客户端生成身份标识session`，然后客户端每次向服务器发请求的时候，都带上这个“身份标识”，服务器就知道这个请求来自于谁了。
+
+至于客户端如何保存该标识，可以有很多方式，对于浏览器而言，一般都是使用`cookie`的方式
+
+服务器使用session把用户信息临时保存了服务器上，用户离开网站就会销毁，这种凭证存储方式相对于cookie来说更加安全，但是session会有一个缺陷: 如果web服务器做了负载均衡，那么下一个操作请求到了另一台服务器的时候session会丢失。
+
+因此，通常企业里会使用`redis,memcached`缓存中间件来实现session的共享，此时web服务器就是一个完全无状态的存在，所有的用户凭证可以通过共享session的方式存取，当前session的过期和销毁机制需要用户做控制。
+
+**Token**
+
+token的意思是“令牌”，是用户身份的验证方式，最简单的token组成: `uid(用户唯一标识)`+`time(当前时间戳)`+`sign(签名,由token的前几位+盐以哈希算法压缩成一定长度的十六进制字符串)`，同时还可以将不变的参数也放进token
+
+这里我们主要想讲的就是`Json Web Token`，也就是本篇的主题:JWT
+
+### **Json-Web-Token(JWT)介绍**
+
+一般而言，用户注册登陆后会生成一个jwt token返回给浏览器，浏览器向服务端请求数据时携带`token`，服务器端使用`signature`中定义的方式进行解码，进而对token进行解析和验证。
+
+### **JWT Token组成部分**
+
+![img](images/v2-dea40372d962a09ac050a6d17e9dd2b2_720w.jpeg)
+
+- header: 用来指定使用的算法(HMAC SHA256 RSA)和token类型(如JWT)
+- payload: 包含声明(要求)，声明通常是用户信息或其他数据的声明，比如用户id，名称，邮箱等. 声明可分为三种: registered,public,private
+- signature: 用来保证JWT的真实性，可以使用不同的算法
+
+**header**
+
+```text
+{
+    "alg": "HS256",
+    "typ": "JWT"
+}
+```
+
+对上面的json进行base64编码即可得到JWT的第一个部分
+
+**payload**
+
+- registered claims: 预定义的声明，通常会放置一些预定义字段，比如过期时间，主题等(iss:issuer,exp:expiration time,sub:subject,aud:audience)
+- public claims: 可以设置公开定义的字段
+- private claims: 用于统一使用他们的各方之间的共享信息
+
+```text
+{
+    "sub": "xxx-api",
+    "name": "bgbiao.top",
+    "admin": true
+}
+```
+
+对payload部分的json进行base64编码后即可得到JWT的第二个部分
+
+`注意:` 不要在header和payload中放置敏感信息，除非信息本身已经做过脱敏处理
+
+**signature**
+
+为了得到签名部分，必须有编码过的header和payload，以及一个秘钥，签名算法使用header中指定的那个，然后对其进行签名即可
+
+```
+HMACSHA256(base64UrlEncode(header)+"."+base64UrlEncode(payload),secret)
+```
+
+签名是`用于验证消息在传递过程中有没有被更改`，并且，对于使用私钥签名的token，它还可以验证JWT的发送方是否为它所称的发送方。
+
+在**[jwt.io](https://link.zhihu.com/?target=https%3A//jwt.io/)**网站中，提供了一些JWT token的编码，验证以及生成jwt的工具。
+
+下图就是一个典型的jwt-token的组成部分。
+
+![img](images/v2-becbc64838d787ca7683b257958f1d21_720w.webp)
+
+### **什么时候用JWT**
+
+- Authorization(授权): 典型场景，用户请求的token中包含了该令牌允许的路由，服务和资源。单点登录其实就是现在广泛使用JWT的一个特性
+- Information Exchange(信息交换): 对于安全的在各方之间传输信息而言，JSON Web Tokens无疑是一种很好的方式.因为JWTs可以被签名，例如，用公钥/私钥对，你可以确定发送人就是它们所说的那个人。另外，由于签名是使用头和有效负载计算的，您还可以验证内容没有被篡改
+
+### **JWT(Json Web Tokens)是如何工作的**
+
+![img](images/v2-82c5f75466da70b96bfd238e0f2924b3_720w.jpeg)
+
+所以，基本上整个过程分为两个阶段，第一个阶段，客户端向服务端获取token，第二阶段，客户端带着该token去请求相关的资源.
+
+通常比较重要的是，服务端如何根据指定的规则进行token的生成。
+
+在认证的时候，当用户用他们的凭证成功登录以后，一个JSON Web Token将会被返回。
+
+此后，token就是用户凭证了，你必须非常小心以防止出现安全问题。
+
+一般而言，你保存令牌的时候不应该超过你所需要它的时间。
+
+无论何时用户想要访问受保护的路由或者资源的时候，用户代理（通常是浏览器）都应该带上JWT，典型的，通常放在Authorization header中，用Bearer schema: `Authorization: Bearer <token>`
+
+服务器上的受保护的路由将会检查Authorization header中的JWT是否有效，如果有效，则用户可以访问受保护的资源。如果JWT包含足够多的必需的数据，那么就可以减少对某些操作的数据库查询的需要，尽管可能并不总是如此。
+
+如果token是在授权头（Authorization header）中发送的，那么跨源资源共享(CORS)将不会成为问题，因为它不使用cookie.
+
+![img](images/v2-50bb47d56a98d247ab5909a0fc4ddcc1_720w.jpeg)
+
+- 客户端向授权接口请求授权
+- 服务端授权后返回一个access token给客户端
+- 客户端使用access token访问受保护的资源
+
+### **基于Token的身份认证和基于服务器的身份认证**
+
+**1.基于服务器的认证**
+
+前面说到过session，cookie以及token的区别，在之前传统的做法就是基于存储在服务器上的session来做用户的身份认证，但是通常会有如下问题:
+
+- Sessions: 认证通过后需要将用户的session数据保存在内存中，随着认证用户的增加，内存开销会大
+- 扩展性: 由于session存储在内存中，扩展性会受限，虽然后期可以使用redis,memcached来缓存数据
+- CORS: 当多个终端访问同一份数据时，可能会遇到禁止请求的问题
+- CSRF: 用户容易受到CSRF攻击
+
+**2.Session和JWT Token的异同**
+
+都可以存储用户相关信息，但是session存储在服务端，JWT存储在客户端
+
+![img](images/v2-1f9a28101bc26d90fdc057ba04310caa_720w.jpeg)
+
+**3.基于Token的身份认证如何工作**
+
+基于Token的身份认证是无状态的，服务器或者session中不会存储任何用户信息.(很好的解决了共享session的问题)
+
+- 用户携带用户名和密码请求获取token(接口数据中可使用appId,appKey)
+- 服务端校验用户凭证，并返回用户或客户端一个Token
+- 客户端存储token,并在请求头中携带Token
+- 服务端校验token并返回数据
+
+```
+注意:
+```
+
+- 随后客户端的每次请求都需要使用token
+- token应该放在header中
+- 需要将服务器设置为接收所有域的请求: `Access-Control-Allow-Origin: *`
+
+**4.用Token的好处**
+
+- 无状态和可扩展性
+- 安全: 防止CSRF攻击;token过期重新认证
+
+**5.JWT和OAuth的区别**
+
+- 1.OAuth2是一种授权框架 ，JWT是一种认证协议
+- 2.无论使用哪种方式切记用HTTPS来保证数据的安全性
+- 3.OAuth2用在`使用第三方账号登录的情况`(比如使用weibo, qq, github登录某个app)，而`JWT是用在前后端分离`, 需要简单的对后台API进行保护时使用
+
+# 使用Gin框架集成JWT
+
+在Golang语言中，**[jwt-go](https://link.zhihu.com/?target=https%3A//github.com/dgrijalva/jwt-go)**库提供了一些jwt编码和验证的工具，因此我们很容易使用该库来实现token认证。
+
+另外，我们也知道**[gin](https://link.zhihu.com/?target=https%3A//github.com/gin-gonic/gin)**框架中支持用户自定义middleware，我们可以很好的将jwt相关的逻辑封装在middleware中，然后对具体的接口进行认证。
+
+## JWT的使用
+
+下载组件
+
+官网：  https://github.com/golang-jwt/jwt
+
+```go
+go get -u github.com/golang-jwt/jwt/v5
+```
+
+参考文章：https://blog.csdn.net/qq_39463535/article/details/133061861
+
+防止缓存击穿神器-singleflight,参考资料见知识点。
+
+```go
+go get golang.org/x/sync/singleflight
+```
+
+### jwt的基本使用封装
+
+在commons下新建jwtgo -> jwt_go.go
+
+```go
+/*
+@Author: 梦无矶小仔
+@Date:   2024/1/12 17:14
+*/
+package jwtgo
+
+import (
+	"errors"
+	jwt "github.com/golang-jwt/jwt/v5"
+	"golang.org/x/sync/singleflight"
+)
+
+var (
+	TokenExpired     = errors.New("Token is expired")
+	TokenNotValidYet = errors.New("Token not active yet")
+	TokenMalformed   = errors.New("That's not even a token")
+	TokenInvalid     = errors.New("Couldn't handle this token:")
+)
+
+// 定义一个JWT对象
+type JWT struct {
+	// 声明签名信息
+	SigningKey []byte
+}
+
+// 初始化jwt对象
+func NewJWT() *JWT {
+	return &JWT{
+		[]byte("www.mengwuji.com"),
+	}
+}
+
+// CustomClaims 自定义声明类型 并内嵌jwt.RegisteredClaims
+// jwt包自带的jwt.RegisteredClaims只包含了官方字段
+// 假设我们这里需要额外记录一个username字段，所以要自定义结构体
+// 如果想要保存更多信息，都可以添加到这个结构体中
+type CustomClaims struct {
+	UserId   uint   `json:"userId"`
+	Username string `json:"username"`
+	// 续期使用
+	BufferTime int64
+	// RegisteredClaims 内嵌标准的声明
+	jwt.RegisteredClaims
+}
+
+// 创建一个token
+// 指定编码的算法为jwt.SigningMethodHS256
+func (j *JWT) CreateToken(claims CustomClaims) (string, error) {
+	// 返回一个token的结构体指针
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString(j.SigningKey)
+}
+
+// CreateTokenByOldToken 旧token 换新token 使用归并回源避免并发问题
+func (j *JWT) CreateTokenByOldToken(oldToken string, claims CustomClaims) (string, error) {
+	singleflightGroup := &singleflight.Group{}
+	v, err, _ := singleflightGroup.Do("JWT:"+oldToken, func() (interface{}, error) {
+		return j.CreateToken(claims)
+	})
+	return v.(string), err
+}
+
+// 解析 token
+func (j *JWT) ParseToken(tokenString string) (*CustomClaims, error) {
+
+	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(token *jwt.Token) (i interface{}, e error) {
+		return j.SigningKey, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	// 将token中的claims信息解析出来并断言成用户自定义的有效载荷结构
+	if claims, ok := token.Claims.(*CustomClaims); ok && token.Valid {
+		return claims, nil
+	}
+	return nil, errors.New("invalid token")
+}
+```
+
+### 定义jwt的models
+
+
+
+## 更新
+
+
+
+
+
+## token的时限多长才合适？
+
+使用JWT时，一个让人纠结的问题就是“Token的时限多长才合适？”。
+
+- 面对极度敏感的信息，如钱或银行数据，那就根本不要在本地存放Token，只存放在内存中。这样，随着App关闭，Token也就没有了。（一次性token）
+- 此外，将Token的时限设置成较短的时间（如1小时）。
+- 对于那些虽然敏感但跟钱没关系，如健身App的进度，这个时间可以设置得长一点，如1个月。
+- 对于像游戏或社交类App，时间可以更长些，半年或1年。
+
+并且，文章还建议增加一个“Token吊销”过程来应对Token被盗的情形，类似于当发现银行卡或电话卡丢失，用户主动挂失的过程。
+
+```go
+github.com/songzhibin97/gkit
+```
+
 
 
 # 目录
@@ -2329,5 +2348,41 @@ item:
 
 
 
-# OS库
+## go卸载安装三方库
+
+### 1、查看包
+
+```go
+go list -m all
+```
+
+
+
+### 2、安装
+
+```go
+go get [包名]
+```
+
+
+
+### 3、卸载
+
+```go
+go clean -i [包名]
+```
+
+
+
+## OS库
+
+
+
+## golang防缓存击穿神器【singleflight】
+
+[golang防缓存击穿神器【singleflight】 - 知乎 (zhihu.com)](https://zhuanlan.zhihu.com/p/382965636)
+
+```go
+go get golang.org/x/sync/singleflight
+```
 
