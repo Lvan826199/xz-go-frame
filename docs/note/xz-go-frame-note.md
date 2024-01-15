@@ -2707,6 +2707,126 @@ xiaozai
 
 
 
+## 实现JWT的续期
+
+续期的原理：你只要在有效内的一个时间点，进行续期接口。续期其实就指：重新生成一个新的token。用新的token来替换旧的token。旧的token必须拉入黑名单。设置过期时间 
+
+一句话：新老更替。
+
+- 首先，创建一个token , 有效期：1分钟 60
+- 在有效时间点上比如：50秒的时候，我就重新创建一个新的token .来替换旧的token即可。
+- 然后在旧的token拉入黑名单，然后写入可以定时删除的内存中（redis）
+
+**方案如下：**
+
+如果：过期时间 - 当前时间 < 缓冲时间
+
+- 我就重新创建一个新的token .来替换旧的token即可。
+- 然后在旧的token拉入黑名单，然后写入可以定时删除的内存中（redis）
+
+
+
+### JWT黑名单处理
+
+commons -> jwtgo -> jwt_black_list.go
+
+```go
+package jwtgo
+
+import (
+	"errors"
+	"gorm.io/gorm"
+	"xz-go-frame/global"
+	"xz-go-frame/model/jwt"
+)
+
+type JwtService struct{}
+
+func (jwtService *JwtService) JsonInBlacklist(jwtList jwt.JwtBlacklist) (err error) {
+	err = global.XZ_DB.Create(&jwtList).Error
+	if err != nil {
+		return
+	}
+	return
+}
+
+func (jwtService *JwtService) IsBlacklist(jwttoken string) bool {
+	//_, ok := global.BlackCache.Get(jwt)
+	//return ok
+	err := global.XZ_DB.Where("jwt = ?", jwttoken).First(&jwt.JwtBlacklist{}).Error
+	isNotFound := errors.Is(err, gorm.ErrRecordNotFound)
+	return !isNotFound
+}
+
+```
+
+### 修改jwt中间件内容
+
+middle -> jwt.go
+
+```go
+/*
+@Author: 梦无矶小仔
+@Date:   2024/1/15 11:36
+*/
+package middle
+
+import (
+	"fmt"
+	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
+	"strconv"
+	"time"
+	"xz-go-frame/commons/jwtgo"
+	"xz-go-frame/commons/response"
+	"xz-go-frame/utils"
+	jwtdb "xz-go-frame/model/jwt"
+)
+
+
+
+var jwtService = jwtgo.JwtService{}
+
+// 定义一个JWTAuth的中间件
+func JWTAuth() gin.HandlerFunc {
+	return func(c *gin.Context) {
+        
+		...
+
+		// 增加jwt-token的续期功能
+		// 判断过期时间 - now  < buffertime 就开始续期 ep 1d -- no
+		fmt.Println("customClaims.ExpiresAt", customClaims.ExpiresAt)
+		fmt.Println("time.Now().Unix()", time.Now().Unix())
+		fmt.Println("customClaims.ExpiresAt - time.Now().Unix()", customClaims.ExpiresAt.Unix()-time.Now().Unix())
+		fmt.Println("customClaims.BufferTime", customClaims.BufferTime)
+
+		if customClaims.ExpiresAt.Unix()-time.Now().Unix() < customClaims.BufferTime {
+			// 1、生成一个新的token
+			// 2、用c把新的token返回页面
+			fmt.Println("开始续期.....")
+			// 获取7天的过期时间
+			eptime, _ := utils.ParseDuration("7d")
+			// 用当前时间 + eptime 就是新的token过期时间
+			customClaims.ExpiresAt = jwt.NewNumericDate(time.Now().Add(eptime))
+			// 生成新的token
+			newToken, _ := myJwt.CreateTokenByOldToken(token, *customClaims)
+			// 输出给浏览器 --- request --- header --- 给服务端
+			// 输出给浏览器 --- reponse --- header --- 给浏览器
+			c.Header("new-authorization", newToken)
+			c.Header("new-expires-at", strconv.FormatInt(customClaims.ExpiresAt.Unix(), 10))
+			// 如果生成新的token了，旧的token怎么办？jwt没有提供一个机制让旧token失效。
+			_ = jwtService.JsonInBlacklist(jwtdb.JwtBlacklist{Jwt: token})
+		}
+
+		// 让后续的路由方法可以直接通过c.Get("claims")
+		c.Set("claims", customClaims)
+		c.Next()
+	}
+
+}
+
+```
+
 
 
 # 目录
@@ -2841,4 +2961,10 @@ go clean -i [包名]
 ```go
 go get golang.org/x/sync/singleflight
 ```
+
+
+
+## Zap日志库
+
+[Zap Logger · Go语言中文文档 (topgoer.com)](https://www.topgoer.com/项目/log/ZapLogger.html)
 

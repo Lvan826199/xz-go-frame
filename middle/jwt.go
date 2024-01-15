@@ -5,10 +5,18 @@
 package middle
 
 import (
+	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
+	"strconv"
+	"time"
 	"xz-go-frame/commons/jwtgo"
 	"xz-go-frame/commons/response"
+	jwtdb "xz-go-frame/model/jwt"
+	"xz-go-frame/utils"
 )
+
+var jwtService = jwtgo.JwtService{}
 
 // 定义一个JWTAuth的中间件
 func JWTAuth() gin.HandlerFunc {
@@ -33,6 +41,32 @@ func JWTAuth() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
+
+		// 增加jwt-token的续期功能
+		// 判断过期时间 - now  < buffertime 就开始续期 ep 1d -- no
+		fmt.Println("customClaims.ExpiresAt", customClaims.ExpiresAt)
+		fmt.Println("time.Now().Unix()", time.Now().Unix())
+		fmt.Println("customClaims.ExpiresAt - time.Now().Unix()", customClaims.ExpiresAt.Unix()-time.Now().Unix())
+		fmt.Println("customClaims.BufferTime", customClaims.BufferTime)
+
+		if customClaims.ExpiresAt.Unix()-time.Now().Unix() < customClaims.BufferTime {
+			// 1、生成一个新的token
+			// 2、用c把新的token返回页面
+			fmt.Println("开始续期.....")
+			// 获取7天的过期时间
+			eptime, _ := utils.ParseDuration("7d")
+			// 用当前时间 + eptime 就是新的token过期时间
+			customClaims.ExpiresAt = jwt.NewNumericDate(time.Now().Add(eptime))
+			// 生成新的token
+			newToken, _ := myJwt.CreateTokenByOldToken(token, *customClaims)
+			// 输出给浏览器 --- request --- header --- 给服务端
+			// 输出给浏览器 --- reponse --- header --- 给浏览器
+			c.Header("new-authorization", newToken)
+			c.Header("new-expires-at", strconv.FormatInt(customClaims.ExpiresAt.Unix(), 10))
+			// 如果生成新的token了，旧的token怎么办？jwt没有提供一个机制让旧token失效。
+			_ = jwtService.JsonInBlacklist(jwtdb.JwtBlacklist{Jwt: token})
+		}
+
 		// 让后续的路由方法可以直接通过c.Get("claims")
 		c.Set("claims", customClaims)
 		c.Next()

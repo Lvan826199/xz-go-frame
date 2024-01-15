@@ -97,6 +97,13 @@ go get -u github.com/golang-jwt/jwt/v5
 go get golang.org/x/sync/singleflightGroup
 ```
 
+**日志模块**
+
+```shell
+go get -u go.uber.org/zap
+go get go.uber.org/goleak v1.2.0
+```
+
 # 前端依赖安装
 
 
