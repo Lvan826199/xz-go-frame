@@ -13,7 +13,10 @@ func (videoRouter *VideoRouter) InitVideoRouter(group *gin.RouterGroup) {
 	videoApi := video.Video{}
 	videoGroup := group.Group("video")
 	{
-		videoGroup.GET("/index", videoApi.VideoIndex)
-		videoGroup.GET("/get/:id", videoApi.GetVideoDetailById)
+
+		videoGroup.GET("find", videoApi.FindVideos)
+		videoGroup.GET("get", videoApi.GetByID)
+		//videoGroup.GET("/index", videoApi.VideoIndex)
+		//videoGroup.GET("/get/:id", videoApi.GetVideoDetailById)
 	}
 }

@@ -17,7 +17,7 @@ func main() {
 	// 初始化数据库
 	initlization.InitMySQL()
 	//开始初始化gin路由服务
-	initlization.WebRouterInit()
+	initlization.RunServer()
 	fmt.Println("启动xz-go-frame后端成功")
 
 }

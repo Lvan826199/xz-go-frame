@@ -2226,13 +2226,372 @@ func (j *JWT) ParseToken(tokenString string) (*CustomClaims, error) {
 }
 ```
 
-### 定义jwt的models
+### 定义jwt的model
+
+model -> jwt -> jwt.go
+
+```go
+/*
+@Author: 梦无矶小仔
+@Date:   2024/1/12 18:23
+*/
+package jwt
+
+import (
+	"gorm.io/gorm"
+	"time"
+)
+
+type JwtBlacklist struct {
+	ID        uint           `gorm:"primarykey;comment:主键ID"` // 主键ID
+	CreatedAt time.Time      `gorm:"type:datetime(0);comment:创建时间" json:"createdAt"`
+	UpdatedAt time.Time      `gorm:"type:datetime(0);comment:更新时间" json:"updatedAt"`
+	DeletedAt gorm.DeletedAt `gorm:"index;comment:删除时间" json:"-"` // 删除时间
+	Jwt       string         `gorm:"type:text;comment:jwt"`
+}
+
+```
+
+### 注册jwt表
+
+commons -> orm -> registertable.go
+
+```go
+package orm
+
+import (
+	"xz-go-frame/global"
+	"xz-go-frame/model/jwt"
+	"xz-go-frame/model/user"
+)
+
+func RegisterTable() {
+	db := global.XZ_DB
+	// 注册和声明model
+	db.AutoMigrate(&user.User{})
+	db.AutoMigrate(jwt.JwtBlacklist{})
+}
+
+```
 
 
 
-## 更新
+### 定义JWT的中间件
+
+middle -> jwt.go
+
+```go
+/*
+@Author: 梦无矶小仔
+@Date:   2024/1/15 11:36
+*/
+package middle
+
+import (
+	"github.com/gin-gonic/gin"
+	"xz-go-frame/commons/jwtgo"
+	"xz-go-frame/commons/response"
+)
 
 
+// 定义一个JWTAuth的中间件
+func JWTAuth() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// 通过http header中的token解析来认证
+		// 获取token
+		// 我们这里jwt鉴权取头部信息 Authorization 登录时回返回token信息 这里前端需要把token存储到cookie或者本地localStorage中 不过需要跟后端协商过期时间 可以约定刷新令牌或者重新登录
+		token := c.GetHeader("Authorization")
+		if token == "" {
+			response.Fail(701, "请求未携带token，无权限访问", c)
+			c.Abort()
+			return
+		}
+		// 生成jwt的对象
+		myJwt := jwtgo.NewJWT()
+		// parseToken 解析token包含的信息
+		customClaims, err := myJwt.ParseToken(token)
+		// 如果解析失败就出现异常
+		if err != nil {
+			response.Fail(60001, "token失效了", c)
+			c.Abort()
+			return
+			}
+		// 让后续的路由方法可以直接通过c.Get("claims")
+		c.Set("claims", customClaims)
+		c.Next()
+		}
+		
+}
+
+```
+
+
+
+
+
+## 更新login相关Api内容
+
+api -> v1 -> login -> login.go
+
+```go
+package login
+
+import (
+	"fmt"
+	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/mojocn/base64Captcha"
+	"time"
+	"xz-go-frame/commons/jwtgo"
+	"xz-go-frame/commons/response"
+	service "xz-go-frame/service/user"
+)
+
+// 登录业务
+type LoginApi struct {
+}
+
+// 1、定义验证码的store -- 默认是存储在go的内存中
+var store = base64Captcha.DefaultMemStore
+
+// 登录接口的处理
+func (api *LoginApi) ToLogined(c *gin.Context) {
+	type LoginParam struct {
+		Account  string
+		Code     string
+		CodeId   string
+		Password string
+	}
+	// 1、获取用户在页面上输入账号和密码，开始在数据库里对数据进行校验
+	userService := service.UserService{}
+	param := LoginParam{}
+	err2 := c.ShouldBindJSON(&param)
+	if err2 != nil {
+		response.Fail(60002, "参数绑定有误", c)
+		return
+	}
+
+	//if len(param.Code) == 0 {
+	//	response.Fail(60002, "请输入验证码", c)
+	//	return
+	//}
+	//
+	//if len(param.CodeId) == 0 {
+	//	response.Fail(60002, "验证码获取失败", c)
+	//	return
+	//}
+	//
+	//// 开始校验验证码是否正确
+	//verify := store.Verify(param.CodeId, param.Code, true)
+	//if !verify {
+	//	response.Fail(60002, "你输入的验证码有误!!", c)
+	//	return
+	//}
+	inputAccount := param.Account
+	inputPassword := param.Password
+
+	if len(inputAccount) == 0 {
+		response.Fail(60002, "请输入账号", c)
+		return
+	}
+
+	if len(inputPassword) == 0 {
+		response.Fail(60002, "请输入密码", c)
+		return
+	}
+
+	dbUser, err := userService.GetUserByAccount(inputAccount)
+	if err != nil {
+		response.Fail(60002, "您输入的账号或密码错误", c)
+		return
+	}
+
+	// 校验用户的账号密码输入是否和数据库一致
+	if dbUser != nil && dbUser.Password == inputPassword {
+		// 1、jwt 生成token
+		myJwt := jwtgo.NewJWT()
+		// 2、生成token
+		token, err2 := myJwt.CreateToken(jwtgo.CustomClaims{
+			dbUser.ID,
+			dbUser.Name,
+			int64(1545),
+			jwt.RegisteredClaims{
+				Audience:  jwt.ClaimStrings{"XZ-USER"},                                            // 受众
+				Issuer:    "MWJ-ADMIN",                                                            // 签发者
+				IssuedAt:  jwt.NewNumericDate(time.Now()),                                         // 签发时间
+				NotBefore: jwt.NewNumericDate(time.Now().Add(-1000)),                              // 生效时间
+				ExpiresAt: jwt.NewNumericDate(time.Now().Add(1 * time.Second * 60 * 60 * 24 * 7)), // 过期时间 7天
+			},
+		})
+		fmt.Println("当前时间是：", time.Now().Unix())
+		fmt.Println("签发时间：" + time.Now().Format("2006-01-02 15:04:05"))
+		fmt.Println("生效时间：" + time.Now().Add(-1000*time.Second).Format("2006-01-02 15:04:05"))
+		fmt.Println("过期时间：" + time.Now().Add(1*time.Second*60*60*24*7).Format("2006-01-02 15:04:05"))
+		if err2 != nil {
+			response.Fail(60002, "登录失败,token颁发不成功！", c)
+			return
+		}
+		response.Ok(map[string]any{"user": dbUser, "token": token}, c)
+
+	} else {
+		response.Fail(60002, "你输入的账号和密码有误", c)
+	}
+}
+
+```
+
+
+
+## 更新login的路由
+
+router-> login -> login.go
+
+```go
+package login
+
+import (
+	"github.com/gin-gonic/gin"
+	"xz-go-frame/api/v1/login"
+)
+
+// 登录路由
+type LoginRouter struct{}
+
+func (router *LoginRouter) InitLoginRouter(Router *gin.Engine) {
+	loginApi := login.LoginApi{}
+	// 单个定义
+	//Router.GET("/login/toLogin", loginApi.ToLogined)
+	//Router.GET("/login/toReg", loginApi.ToLogined)
+	//Router.GET("/login/forget", loginApi.ToLogined)
+
+	// 用组定义 ---》 推荐
+	loginRouter := Router.Group("/login")
+	{
+		loginRouter.POST("/toLogin", loginApi.ToLogined)
+	}
+}
+```
+
+## 新建启动服务初始化
+
+initlization -> init_server.go
+
+```go
+/*
+@Author: 梦无矶小仔
+@Date:   2024/1/15 13:48
+*/
+package initlization
+
+import (
+	"github.com/gin-gonic/gin"
+	"net/http"
+	"time"
+)
+
+type server interface {
+	ListenAndServe() error
+}
+
+func initServer(address string, router *gin.Engine) server {
+	return &http.Server{
+		Addr:           address,
+		Handler:        router,
+		ReadTimeout:    20 * time.Second,
+		WriteTimeout:   20 * time.Second,
+		MaxHeaderBytes: 1 << 20,
+	}
+}
+
+```
+
+
+
+## 路由初始化时加入JWT
+
+initlization -> init_router.go
+
+```go
+package initlization
+
+import (
+	"fmt"
+	"github.com/gin-gonic/gin"
+	"net/http"
+	"time"
+	"xz-go-frame/commons/filter"
+	"xz-go-frame/global"
+	"xz-go-frame/middle"
+	"xz-go-frame/router"
+	"xz-go-frame/router/code"
+	"xz-go-frame/router/login"
+)
+
+func InitGinRouter() *gin.Engine {
+	// 初始化 gin 服务
+	ginServer := gin.Default()
+
+	// 提供服务组
+	videoRouter := router.RouterWebGroupApp.Video.VideoRouter
+
+	// 解决接口的跨域问题
+	ginServer.Use(filter.Cors())
+	// 登录接口
+	loginRouter := login.LoginRouter{}
+	// 验证码接口
+	codeRouter := code.CodeRouter{}
+
+	// 接口隔离，比如登录，健康检查都不需要拦截和做任何处理
+	loginRouter.InitLoginRouter(ginServer)
+	codeRouter.InitCodeRouter(ginServer)
+
+	// 业务模块接口
+	publicGroup := ginServer.Group("/api")
+	// 只要是api接口都使用jwt拦截
+	publicGroup.Use(middle.JWTAuth())
+	{
+		videoRouter.InitVideoRouter(publicGroup)
+	}
+
+	fmt.Println("router register success")
+	return ginServer
+}
+
+func RunServer() {
+	// 初始化路由
+	Router := InitGinRouter()
+	// 为用户头像和文件提供静态地址
+	Router.StaticFS("/static", http.Dir("/static"))
+	address := fmt.Sprintf(":%d", global.Yaml["server.port"])
+	// 启动HTTP服务，courseController
+	s := initServer(address, Router)
+	// 保证文本顺序输出
+	time.Sleep(10*time.Microsecond)
+	
+	s2 := s.ListenAndServe().Error()
+	fmt.Println("服务启动完毕",s2)
+
+}
+
+```
+
+
+
+## 修改main.go的启动函数
+
+```go
+func main() {
+	//  开始初始化配置文件
+	initlization.InitViper()
+	fmt.Println("初始化配置文件成功！")
+	// 初始化数据库
+	initlization.InitMySQL()
+	//开始初始化gin路由服务
+	initlization.RunServer() // 修改的地方
+	fmt.Println("启动xz-go-frame后端成功")
+
+}
+```
 
 
 
@@ -2250,6 +2609,103 @@ func (j *JWT) ParseToken(tokenString string) (*CustomClaims, error) {
 ```go
 github.com/songzhibin97/gkit
 ```
+
+## 修改video接口的jwt验证
+
+api -> v1 -> video -> video.go
+
+```go
+package video
+
+import (
+	"fmt"
+	"github.com/gin-gonic/gin"
+	"xz-go-frame/commons/jwtgo"
+	"xz-go-frame/commons/response"
+)
+
+type Video struct {
+}
+
+// 查询video
+func (videoController *Video) FindVideos(c *gin.Context) {
+	claims, _ := c.Get("claims")
+	customClaims := claims.(*jwtgo.CustomClaims)
+	fmt.Println(customClaims.UserId)
+	fmt.Println(customClaims.Username)
+	response.Ok("success FindVideos", c)
+}
+
+// 获取视频明细
+func (videoController *Video) GetByID(c *gin.Context) {
+	// 绑定参数用来获取/:id 这个方式
+	// id := c.Param("id")
+	// 绑定参数 ?ids = 1111
+	claims, _ := c.Get("claims")
+	customClaims := claims.(*jwtgo.CustomClaims)
+	fmt.Println(customClaims.UserId)
+	fmt.Println(customClaims.Username)
+	response.Ok("success GetByID", c)
+}
+```
+
+
+
+### 修改video的router
+
+router -> video -> video.go
+
+```go
+package video
+
+import (
+	"github.com/gin-gonic/gin"
+	"xz-go-frame/api/v1/video"
+)
+type VideoRouter struct {
+}
+func (videoRouter *VideoRouter) InitVideoRouter(group *gin.RouterGroup) {
+	// 帖子路由
+	videoApi := video.Video{}
+	videoGroup := group.Group("video")
+	{
+		videoGroup.GET("find", videoApi.FindVideos)
+		videoGroup.GET("get", videoApi.GetByID)
+	}
+}
+```
+
+
+
+## 校验jwt测试
+
+校验，在Navicat连接数据库，创建几个用户账号密码用于测试。
+
+![image-20240115141303997](images/image-20240115141303997.png)
+
+后端打印了jwt的时间
+
+```shell
+当前时间是： 1705299158
+签发时间：2024-01-15 14:12:38
+生效时间：2024-01-15 13:55:58
+过期时间：2024-01-22 14:12:38
+```
+
+
+
+请求头携带Autorization的token访问 `http://localhost:8088/api/video/find`
+
+![image-20240115145820747](images/image-20240115145820747.png)
+
+后端打印出来了解析出来的用户id和用户名
+
+```go
+1
+xiaozai
+```
+
+
 
 
 

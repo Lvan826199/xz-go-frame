@@ -6,6 +6,7 @@ package jwtgo
 
 import (
 	"errors"
+	"fmt"
 	jwt "github.com/golang-jwt/jwt/v5"
 	"golang.org/x/sync/singleflight"
 )
@@ -62,7 +63,7 @@ func (j *JWT) CreateTokenByOldToken(oldToken string, claims CustomClaims) (strin
 
 // 解析 token
 func (j *JWT) ParseToken(tokenString string) (*CustomClaims, error) {
-
+	fmt.Println("开始解析token：", tokenString)
 	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(token *jwt.Token) (i interface{}, e error) {
 		return j.SigningKey, nil
 	})
