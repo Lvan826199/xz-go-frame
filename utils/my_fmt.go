@@ -6,6 +6,8 @@ package utils
 
 import (
 	"encoding/json"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 	"reflect"
 )
 
@@ -44,4 +46,11 @@ func StructToMapReflect(obj interface{}) map[string]any {
 		}
 	}
 	return data
+}
+
+// MaheHump 将字符串转换为驼峰命名
+func MaheHump(s string) string {
+	humpName := cases.Title(language.English)
+	s2 := humpName.String(s)
+	return s2
 }
