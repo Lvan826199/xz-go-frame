@@ -1953,8 +1953,6 @@ onMounted(() => {
 
 在开始学习**[JWT](https://link.zhihu.com/?target=https%3A//jwt.io/)**之前，我们可以先了解下早期的几种方案。
 
-
-
 ### **token、cookie、session的区别**
 
 **Cookie**
@@ -2974,6 +2972,82 @@ func (api *LoginApi) generaterToken(c *gin.Context, dbUser *user.User) string {
 
 # 目录
 
+国际化
+
+32 - 1-2 静态菜单顶部侧边 - 动态菜单 - 页面布局处理
+
+- layout/Index.vue中进行布局
+- layout的component里面就是头部、菜单、内容区域的各部分组件
+- 侧边菜单颜色修改，菜单折叠
+- 路由管理pinia
+- 难点 - 动态路由
+
+32 -3- 菜单表的设计
+
+- elementplus中的dialog、message、messagebox（自己封装，像之前的kva一样）
+
+- 后台系统中用户权限角色的设计
+- 表格滚动展示，固定表头和跳转页面，只滚动中间表格内容，over-flow；auto，计算属性控制页面放大缩小表格显示问题
+- kva.js这个文件需要自己写一遍封装
+
+33 - 
+
+- 面包屑、顶部页头 - homepageHeader.vue
+- src -> components -> index.js 全自动化注册全局组件
+- 后端增加用户退出的接口，清除已登录账户的token
+- 头像组件Avatar - 分割线 divided属性
+- 登录状态通过路由访问登录页面，需要进行处理
+
+34 - 
+
+- 控制面板前端内容整理
+- 隐藏和折叠
+- 菜单导航 - 标签页Tab
+- 状态管理，stores -> menuTab.js
+- 后端 -- 建表 - model - sys下面的所有，注册表
+
+35-1
+
+- 后端zap日志处理，增加log模块，了解gin的自带日志
+- gorm日志和zap日志，init_gorm.go中写
+- 用户表了名字，字段看下有没有变化
+- 实现系统用户表的管理（.md文件中有步骤）
+- 前端settings.js设置菜单的宽度适配
+
+35-2
+
+- 修改了登录页面
+- 骨架屏 - elementplus - skeleton
+- 数字动画（重复内容）
+- 后端用户增删改查
+- 密码加密
+
+36
+
+- 读取表的信息
+- modle增加了vo和entity，数据载体
+- 校验验证 - validate
+
+37
+
+- 逻辑删除-物理删除，0值处理，unscope
+
+- 角色权限设置，表设计，前端展示设计
+
+38
+
+- 数据库 - 事务 - 原子性、隔离性、持久性、一致性
+- 新增用户前后端
+
+39
+
+- gorm更新0值失败的问题
+- throttle限制连续请求-防抖-前端
+
+40
+
+- 泛型约束
+
 # 知识点
 
 记录框架涉及到的知识点
@@ -3111,3 +3185,250 @@ go get golang.org/x/sync/singleflight
 
 [Zap Logger · Go语言中文文档 (topgoer.com)](https://www.topgoer.com/项目/log/ZapLogger.html)
 
+
+
+
+
+## Gorm——Unscoped
+
+在 Golang 的 ORM 库 GORM 中，`Unscoped` 是一个非常有用的方法，它可以用来包括通常被 GORM 软删除（Soft Delete）的记录在内的查询操作中。在 GORM 中，软删除是一个标记记录为删除的特性，而不是从数据库中实际删除它。当一个记录被软删除时，它仍然存在于数据库中，但 GORM 的正常查询操作会默认忽略这些记录。
+
+当你想要执行不忽略软删除记录的操作时，比如查询或真正的删除，你可以使用 `Unscoped` 方法。
+
+### `Unscoped` 的用法：
+
+1. 查询包括软删除记录的操作：
+
+```go
+// 假设有一个名为 User 的模型，它包含软删除功能
+var users []User
+// 查询所有用户，包括被软删除的用户
+db.Unscoped().Find(&users)
+```
+
+2. 永久删除记录：
+
+```go
+// 删除一个具体的记录，而不是软删除
+db.Unscoped().Delete(&user)
+```
+
+在上面的例子中，如果不使用 `Unscoped`，`Delete` 方法将会执行软删除（如果模型被配置为支持软删除），即它只是设置了记录的 `deleted_at` 字段（或者是你在模型中指定的软删除字段）。使用 `Unscoped` 后，`Delete` 方法将会从数据库中永久删除这个记录。
+
+### `Unscoped` 的原理：
+
+在 GORM 中，每个查询链都可以包含多个方法，这些方法可以修改 GORM 内部的查询构建器的状态。当你调用 `Unscoped` 方法时，它会告诉 GORM 在接下来的操作中忽略软删除的过滤条件。这样，即使记录有 `deleted_at` 字段被设置了值，查询也会返回这些记录。
+
+### 注意事项：
+
+- 使用 `Unscoped` 时要谨慎，因为它会返回或删除所有相关记录，包括那些被标记为删除的记录。
+- 如果你的模型没有使用 GORM 的软删除功能，`Unscoped` 方法不会有任何影响。
+- 在使用 `Unscoped` 进行删除操作时，请确保你的操作是正确的，因为这将会永久从数据库中移除记录，这是一个不可逆的操作。
+
+
+
+## Gorm —— 默认零值不处理
+
+参考文献：https://gorm.io/zh_CN/docs/update.html
+
+在 GORM 中，当你使用 `Create` 或 `Save` 方法时，如果结构体中的字段为 Go 语言的零值（比如 `int` 类型的 `0`，`string` 类型的空字符串 `""`，布尔类型的 `false` 等），GORM 默认不会将这些零值写入数据库。这是因为 GORM 不能确定这些零值是你有意设置的，还是仅仅因为它们是 Go 语言中类型的默认零值。
+
+如果你需要将零值写入数据库，你可以使用几种方法来告诉 GORM 你的意图：
+
+### 1. 使用指针类型
+
+将字段的类型声明为指针类型，这样字段就可以是 `nil`（不设置值）或者非 `nil`（设置了值，即使是零值）。
+
+```go
+type User struct {
+  gorm.Model
+  Name     string
+  Age      *int
+  IsActive *bool
+}
+
+// 当你想要设置零值时
+age := 0
+isActive := false
+user := User{Name: "John", Age: &age, IsActive: &isActive}
+db.Create(&user)
+```
+
+使用指针类型时，如果字段值为 `nil`，GORM 将会忽略该字段，如果字段值为非 `nil`（包括零值），GORM 将会保存该值。
+
+### 2. 使用 `sql.Null*` 类型
+
+对于基本类型，你可以使用 SQL 包中的 `NullString`、`NullInt64`、`NullBool` 等类型，这些类型可以明确表示值是否存在。
+
+```go
+import "database/sql"
+
+type User struct {
+  gorm.Model
+  Name     string
+  Age      sql.NullInt64
+  IsActive sql.NullBool
+}
+
+user := User{Name: "John", Age: sql.NullInt64{Int64: 0, Valid: true}, IsActive: sql.NullBool{Bool: false, Valid: true}}
+db.Create(&user)
+```
+
+### 3. 使用 `gorm.Expr`
+
+使用 `gorm.Expr` 来构建一个表达式，这样 GORM 就会在 SQL 语句中使用这个表达式的值。
+
+```go
+db.Model(&user).Update("age", gorm.Expr("?", 0))
+```
+
+### 4. 使用 `Select` 方法
+
+在 `Create` 或 `Save` 方法中使用 `Select`，明确指定要更新的字段。
+
+```go
+db.Select("Age", "IsActive").Create(&user)
+```
+
+### 5. 配置 GORM 使用默认值
+
+你可以为 GORM 模型的字段设置标签 `default`，以便在插入记录时使用指定的默认值。
+
+```go
+type User struct {
+  gorm.Model
+  Name     string
+  Age      int `gorm:"default:0"`
+  IsActive bool `gorm:"default:false"`
+}
+
+user := User{Name: "John"}
+db.Create(&user)
+```
+
+在这个例子中，即使 `Age` 和 `IsActive` 是零值，由于设置了默认值标签，GORM 也会在插入时使用这些默认值。
+
+选择哪种方法取决于你的具体需求以及你希望如何处理零值。要注意的是，每种方法都有其适用场景和潜在的陷阱，因此在决定使用哪种方法之前，请确保你了解每种方法的行为以及如何在你的应用程序中正确使用它们。
+
+## Jebrains编辑器 —— 关闭ESlint检查
+
+关闭Vue项目中ESlint检查
+
+file ==> settings ==> 搜索ESlint，去掉Enable的勾
+
+
+
+
+
+## 结构体转化为map
+
+[golang如何优雅的将struct转换为map - 掘金 (juejin.cn)](https://juejin.cn/post/7187042947618046009)
+
+[golang常用库之mapstructure包 | 多json格式情况解析、GO json 如何转化为 map 和 struct、Go语言结构体标签（Struct Tag）_go mapstructure-CSDN博客](https://blog.csdn.net/inthat/article/details/127121728)
+
+https://blog.csdn.net/Alen_xiaoxin/article/details/124078796
+
+
+
+`mapstructure` 是一个 Go 语言库，用于将通用的 map 值解码到相应的 Go 结构体中。这在处理动态格式的数据时非常有用，如 JSON 解码到 `map[string]interface{}` 后，再将其转换到一个更严格类型化的结构体。这种方式在处理配置文件或者网络通信时尤其常见。
+
+### 使用 `mapstructure` 的基本步骤：
+
+1. **安装**：首先，你需要安装 `mapstructure` 库。
+
+```sh
+go get github.com/mitchellh/mapstructure
+```
+
+2. **定义结构体**：定义一个 Go 结构体，它的字段应该与你想从 map 中解码的数据相匹配。
+
+```go
+type Person struct {
+    Name    string
+    Age     int
+    Emails  []string
+    Extra   map[string]string
+}
+```
+
+3. **解码数据**：使用 `mapstructure.Decode` 函数将 map 数据解码到结构体中。
+
+```go
+package main
+
+import (
+    "fmt"
+    "github.com/mitchellh/mapstructure"
+)
+
+func main() {
+    // 假定你有一个 map 数据结构
+    inputData := map[string]interface{}{
+        "Name":   "Alice",
+        "Age":    25,
+        "Emails": []string{"alice@example.com", "alice@another.com"},
+        "Extra":  map[string]string{"Twitter": "@alice"},
+    }
+
+    var person Person
+
+    // 解码 inputData 到 person 结构体中
+    err := mapstructure.Decode(inputData, &person)
+    if err != nil {
+        fmt.Println(err)
+    }
+
+    fmt.Printf("%+v\n", person)
+}
+```
+
+### `mapstructure` 的高级用法：
+
+- **自定义标签**：你可以使用结构体字段标签来指定 map 中的键如何映射到结构体的字段。
+
+```go
+type Person struct {
+    Name    string `mapstructure:"name"`
+    Age     int    `mapstructure:"age"`
+    Emails  []string `mapstructure:"emails"`
+    Extra   map[string]string `mapstructure:"extra"`
+}
+```
+
+- **解码钩子**：`mapstructure` 提供了解码钩子功能，允许你在解码过程中自定义转换数据的逻辑。
+
+```go
+config := &mapstructure.DecoderConfig{
+    DecodeHook: mapstructure.StringToTimeDurationHookFunc(),
+    Result:     &person,
+}
+
+decoder, err := mapstructure.NewDecoder(config)
+if err != nil {
+    // 处理错误
+}
+err = decoder.Decode(inputData)
+```
+
+- **弱类型输入**：`mapstructure` 可以处理弱类型的输入，例如 JSON 解码可能会将所有数字解码为 `float64`，而不管它们在 Go 结构体中是整型还是浮点型。
+
+```go
+config := &mapstructure.DecoderConfig{
+    WeaklyTypedInput: true,
+    Result:           &person,
+}
+
+decoder, err := mapstructure.NewDecoder(config)
+if err != nil {
+    // 处理错误
+}
+err = decoder.Decode(inputData)
+```
+
+### `mapstructure` 的作用：
+
+- **灵活性**：它允许你从灵活的 map 结构中解码数据到严格类型化的结构体，提高了类型安全性和易用性。
+- **配置管理**：在处理配置文件时，`mapstructure` 可以简化从 `map[string]interface{}` 到具体配置结构体的转换过程。
+- **通用解码**：它可以用于解码来自不同数据源（如 JSON、YAML 或环境变量）的数据。
+
+总之，`mapstructure` 是一个处理动态数据和将其映射到固定结构的有用工具，特别是在配置管理和数据解析的上下文中。它的灵活性和强大的定制选项使得它在 Go 社区中非常受欢迎。
