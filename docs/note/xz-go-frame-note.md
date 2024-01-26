@@ -1092,11 +1092,11 @@ func (service *UserService) GetUserByAccount(account string) (user *user.User, e
 
 这一组[状态码](https://so.csdn.net/so/search?q=状态码&spm=1001.2101.3001.7020)表明这是一个临时性响应。此响应仅由状态行和可选的HTTP头组成，以一个空行结尾。由于HTTP／1.0未定义任何1xx状态码，所以不要向HTTP／1.0客户端发送1xx响应。
 
-| Http状态码    | Http Status Code                                             | Http状态码含义中文说明 |
-| :------------ | :----------------------------------------------------------- | :--------------------- |
-| ***\*100\**** | [100 Continue](https://seo.juziseo.com/doc/http_code/100)    | 请继续请求             |
-| ***\*101\**** | [101 Switching Protocols](https://seo.juziseo.com/doc/http_code/101) | 请切换协议             |
-| ***\*102\**** | [102 Processing](https://seo.juziseo.com/doc/http_code/102)  | 将继续执行请求         |
+| Http状态码 | Http Status Code                                             | Http状态码含义中文说明 |
+| :--------- | :----------------------------------------------------------- | :--------------------- |
+| 100        | [100 Continue](https://seo.juziseo.com/doc/http_code/100)    | 请继续请求             |
+| 101        | [101 Switching Protocols](https://seo.juziseo.com/doc/http_code/101) | 请切换协议             |
+| 102        | [102 Processing](https://seo.juziseo.com/doc/http_code/102)  | 将继续执行请求         |
 
 
 
@@ -1204,10 +1204,6 @@ c.JSON(http.StatusOK, "你输入的账号和密码有误!!!")
 - 只要请求和响应是正常的，无论正确和错误，我们都用http.StatusOK来返回，但是区分和界定用自己定义的状态来定义业务、
 
 这也就是为什么我们要做自定义返回的意义和价值了.
-
-
-
-
 
 # 集成验证码功能
 
@@ -1329,8 +1325,6 @@ func (api *CodeApi) VerifyCaptcha(c *gin.Context) {
 }
 
 ```
-
-
 
 封装了一个响应方法，`commons->response->response.go`
 
@@ -1473,8 +1467,6 @@ func Cors() gin.HandlerFunc {
 }
 
 ```
-
-
 
 
 
@@ -2049,7 +2041,11 @@ HMACSHA256(base64UrlEncode(header)+"."+base64UrlEncode(payload),secret)
 
 ![img](images/v2-82c5f75466da70b96bfd238e0f2924b3_720w.jpeg)
 
-所以，基本上整个过程分为两个阶段，第一个阶段，客户端向服务端获取token，第二阶段，客户端带着该token去请求相关的资源.
+所以，基本上整个过程分为两个阶段：
+
+第一个阶段，**客户端向服务端获取token。**
+
+第二阶段，**客户端带着该token去请求相关的资源。**
 
 通常比较重要的是，服务端如何根据指定的规则进行token的生成。
 
@@ -2097,9 +2093,7 @@ HMACSHA256(base64UrlEncode(header)+"."+base64UrlEncode(payload),secret)
 - 客户端存储token,并在请求头中携带Token
 - 服务端校验token并返回数据
 
-```
-注意:
-```
+**注意:**
 
 - 随后客户端的每次请求都需要使用token
 - token应该放在header中
@@ -2272,8 +2266,6 @@ func RegisterTable() {
 
 ```
 
-
-
 ### 定义JWT的中间件
 
 middle -> jwt.go
@@ -2322,10 +2314,6 @@ func JWTAuth() gin.HandlerFunc {
 }
 
 ```
-
-
-
-
 
 ## 更新login相关Api内容
 
@@ -2438,8 +2426,6 @@ func (api *LoginApi) ToLogined(c *gin.Context) {
 
 ```
 
-
-
 ## 更新login的路由
 
 router-> login -> login.go
@@ -2502,8 +2488,6 @@ func initServer(address string, router *gin.Engine) server {
 }
 
 ```
-
-
 
 ## 路由初始化时加入JWT
 
@@ -2573,8 +2557,6 @@ func RunServer() {
 
 ```
 
-
-
 ## 修改main.go的启动函数
 
 ```go
@@ -2595,10 +2577,8 @@ func main() {
 
 ## token的时限多长才合适？
 
-使用JWT时，一个让人纠结的问题就是“Token的时限多长才合适？”。
-
 - 面对极度敏感的信息，如钱或银行数据，那就根本不要在本地存放Token，只存放在内存中。这样，随着App关闭，Token也就没有了。（一次性token）
-- 此外，将Token的时限设置成较短的时间（如1小时）。
+- 将Token的时限设置成较短的时间（如1小时）。
 - 对于那些虽然敏感但跟钱没关系，如健身App的进度，这个时间可以设置得长一点，如1个月。
 - 对于像游戏或社交类App，时间可以更长些，半年或1年。
 
@@ -2646,8 +2626,6 @@ func (videoController *Video) GetByID(c *gin.Context) {
 	response.Ok("success GetByID", c)
 }
 ```
-
-
 
 ### 修改video的router
 
@@ -2703,8 +2681,6 @@ func (videoRouter *VideoRouter) InitVideoRouter(group *gin.RouterGroup) {
 xiaozai
 ```
 
-
-
 ## 实现JWT的续期
 
 续期的原理：你只要在有效内的一个时间点，进行续期接口。续期其实就指：重新生成一个新的token。用新的token来替换旧的token。旧的token必须拉入黑名单。设置过期时间 
@@ -2724,8 +2700,6 @@ xiaozai
 - 为什么要旧的token放黑名单：有了新欢旧要忘记旧爱。（redis）
   - 思考题：那么这个旧token会不很多，答案是的，所以你要定时或者人工的去处理和清除token表
   - 解决方案：可以考虑使用redis。因为redis有自动删除和设定时间的能力。
-
-
 
 ### JWT黑名单处理
 
@@ -3047,6 +3021,5020 @@ func (api *LoginApi) generaterToken(c *gin.Context, dbUser *user.User) string {
 40
 
 - 泛型约束
+
+
+
+# 前端部分
+
+# 页面的布局处理
+
+
+
+## 官网参考
+
+https://element-plus.gitee.io/zh-CN/component/table.html#%E5%B8%A6%E8%BE%B9%E6%A1%86%E8%A1%A8%E6%A0%BC
+
+## 后台管理系统
+
+- 登录
+- 首页
+  - 控制面板
+  - 应用管理
+  - 系统管理
+  - 订单管理
+  - 设计管理
+  - 用户管理
+  - 角色权限
+  - 评论管理
+  - 等等等
+- 404错误页面
+
+
+
+## 前端路由设计
+
+- 延后到beego
+
+## 大布局
+
+- 登录
+- 首页
+  - 上–头部信息
+  - 下
+    - 左边（菜单）
+    - 右边 （点击菜单具体内容）
+- 404错误页面
+
+
+
+实现的方式就是：vue-router
+
+### 1：安装
+
+```js
+npm install vue-router@next
+pnpm install vue-router@next
+yarn add vue-router@next
+```
+
+### 2: 在src下定义router目录并新建index.js
+
+```js
+import { createRouter, createWebHashHistory } from 'vue-router'
+import NProgress from 'nprogress'
+// 获取状态管理的token
+import { useUserStore } from '@/stores/user.js'
+import Layout from "@/layout/index.vue";
+import PageFrame from "@/layout/components/PageFrame.vue";
+// 显示右上角螺旋加载提示
+NProgress.configure({ showSpinner: true })
+
+const router = createRouter({
+  history: createWebHashHistory(import.meta.env.BASE_URL),
+  routes: [
+    {
+      path: "/",
+      name: "Home",
+      component: Layout
+  ]
+})
+
+export default router
+
+```
+
+### 3：  注册路由，在main.js中如下：
+
+```js
+import { createApp } from 'vue'
+import App from './App.vue'
+import router from './router'
+const app = createApp(App)
+app.use(router)
+app.mount('#app')
+```
+
+### 4： 开始定义路由页面SPA
+
+这页面都定义在views目录下, 除非是大页面或者公共页面，我们可以直接放入到views目录下。比如：404，login.vue，index.vue。如果是页面的模块建议建设模块的目录然后在里面定义的路由页面。比如：/logs/Operation.vue, /sys/User.vue,/sys/Role.vue
+
+![image-20230729202421316](images/image-20230729202421316.png)
+
+
+
+**==而且注意：页面路由的命名尽量用大写开头。==**
+
+### 5:  静态路由注册
+
+给每个SPA页面进行注册路由。找到router/index.js开始进行静态配置如下：
+
+如果报错请安装：
+
+```js
+pnpm install nprogress
+npm install nprogress
+yarn add nprogress
+```
+
+```js
+import { createRouter, createWebHashHistory } from 'vue-router'
+import NProgress from 'nprogress'
+// 获取状态管理的token
+import { useUserStore } from '@/stores/user.js'
+// 显示右上角螺旋加载提示
+NProgress.configure({ showSpinner: true })
+
+const router = createRouter({
+  history: createWebHashHistory(import.meta.env.BASE_URL),
+  routes: [
+    {
+      path: "/",
+      name: "Home",
+      component: () => import('@/views/Index.vue')
+    },
+    {
+      path: '/newindex',
+      name: 'Newindex',
+      meta: { title: "newindex" },
+      component: () => import('@/views/NewIndex.vue')
+    },
+    {
+      path: '/login',
+      name: 'Login',
+      meta: { title: "login" },
+      component: () => import('@/views/Login.vue')
+    },
+    {
+      path: '/:pathMatch(.*)*',
+      name: 'NotFound',
+      component: () => import('@/views/NotFound.vue')
+    }
+  ]
+})
+
+
+
+router.beforeEach(async (to) => {
+  //开启进度条
+  NProgress.start()
+  const useStore = useUserStore();
+  // 判断是否登录
+  if (!useStore.isLogin && to.name !== 'Login') {
+    // 这里的query就是为了记录用户最后一次访问的路径，这个路径是通过to的参数获取
+    // 后续在登录成功以后，就可以根据这个path的参数，然后调整到你最后一次访问的路径
+    return { name: 'Login', query: { "path": to.path } }
+  } 
+  return true
+})
+
+router.afterEach(() => {
+  //完成进度条
+  NProgress.done()
+})
+
+
+export default router
+
+```
+
+###  设置页面的落脚点router-view的位置
+
+这个落脚点就是：App.vue 其实是入口页面。我准备准备一个空白页面
+
+```vue
+<template>
+    <router-view></router-view>
+</template>
+```
+
+关键代码：`   <router-view></router-view>`
+
+router-路由，view-视图。你通过vue-router访问所有的路由，都会在路由视图位置进行渲染和加载
+
+路由的加载又两种方式：
+
+- 异步加载：component: () => import('@/views/NotFound.vue')
+
+- 静态加载：
+
+  - import Home from "@/views/Index.vue";
+
+  - ```JS
+    const router = createRouter({
+      history: createWebHashHistory(import.meta.env.BASE_URL),
+      routes: [
+        {
+          path: "/",
+          name: "Home",
+          component: Home
+        }
+      ]
+    })
+    ```
+
+### 6: 启动项目
+
+- http://127.0.0.1:8777/#/login
+- http://127.0.0.1:8777/#/
+- http://127.0.0.1:8777/#/newindex
+- http://127.0.0.1:8777/#/loginxxxx—-进入404错误页面
+
+
+
+
+
+## 大布局设计Layout
+
+- 登录—设计完毕
+- 首页
+  - 上–头部信息
+  - 下
+    - 左边（菜单）
+    - 右边 （点击菜单具体内容）
+- 404错误页面——设计完毕
+
+首页如何设计，其实在很多后台系统，都使用布局来命名layout. 在目录下新建一个layout目录。然后新建一个index.vue如下：
+
+![image-20230729205050140](images/image-20230729205050140.png)
+
+layout/index.vue如下：
+
+```vue
+<template>
+  <div>我是首页</div>
+</template>
+```
+
+开始在router/index.js去进行配置首页路由：
+
+```js
+import { createRouter, createWebHashHistory } from 'vue-router'
+import NProgress from 'nprogress'
+// 获取状态管理的token
+import { useUserStore } from '@/stores/user.js'
+// 显示右上角螺旋加载提示
+NProgress.configure({ showSpinner: true })
+import Layout from "@/layout/Index.vue";
+
+const router = createRouter({
+  history: createWebHashHistory(import.meta.env.BASE_URL),
+  routes: [
+    {
+      path: "/",
+      name: "Home",
+      component: Layout
+    },
+    {
+      path: '/newindex',
+      name: 'Newindex',
+      meta: { title: "newindex" },
+      component: () => import('@/views/NewIndex.vue')
+    },
+
+    {
+      path: '/login',
+      name: 'Login',
+      meta: { title: "login" },
+      component: () => import('@/views/Login.vue')
+    },
+    {
+      path: '/:pathMatch(.*)*',
+      name: 'NotFound',
+      component: () => import('@/views/NotFound.vue')
+    }
+  ]
+})
+
+
+
+router.beforeEach(async (to) => {
+  //开启进度条
+  NProgress.start()
+  const useStore = useUserStore();
+  // 判断是否登录
+  if (!useStore.isLogin && to.name !== 'Login') {
+    // 这里的query就是为了记录用户最后一次访问的路径，这个路径是通过to的参数获取
+    // 后续在登录成功以后，就可以根据这个path的参数，然后调整到你最后一次访问的路径
+    return { name: 'Login', query: { "path": to.path } }
+  } 
+  return true
+})
+
+router.afterEach(() => {
+  //完成进度条
+  NProgress.done()
+})
+
+
+export default router
+
+```
+
+重新启动：`npm run dev` 关闭上次启按多次：ctrl+c 即可。
+
+启动访问：http://localhost:8777/#/
+
+![image-20230729205542754](images/image-20230729205542754.png)
+
+在layout/Index.vue页面中开始进行布局，因为如果把头部，菜单，内容的展示区域都放在一起的话，其实是没问题。但是后续的维护是变得困难和臃肿，所以要进行组件化，（其实就是把布局首页进行分割成若干子组件，然后在Index.vue汇合）如下：
+
+1: 头部组件 PageHeader.vue
+
+```vue
+<template>
+  <div class="header-cont">
+   头部组件
+  </div>
+</template>
+<script setup>
+
+
+</script>
+<style lang="scss">
+.header-cont {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 100%;
+  padding:0 20px;
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+  h1 {
+    margin: 0;
+    font-size: 20px;
+  }
+  .gap {
+    margin-right: 20px;
+  }
+  .right {
+    .lang {
+      font-size: 14px;
+      .item {
+        cursor: pointer;
+        &.active {
+          font-size: 18px;
+          font-weight: bold;
+        }
+      }
+    }
+  }
+  .el-dropdown {
+    color: inherit;
+  }
+}
+</style>
+```
+
+2：菜单组件 PageSilder.vue
+
+```vue
+<template>
+<div class="page-sidebar">
+   左侧菜单
+</div>
+</template>
+
+<script  setup>
+</script>
+
+<style lang="scss">
+$side-width: 200px;
+.page-sidebar {
+  height: 100vh;
+  background: #000;
+  .sidemenu.el-menu,
+  .sidemenu .el-sub-menu > .el-menu {
+    --el-menu-text-color: #ccc;
+    --el-menu-hover-bg-color: #060251;
+    --el-menu-border-color: transparent;
+    --el-menu-bg-color: #000;
+    .el-menu-item {
+      &.is-active {
+        background-color: var(--el-menu-hover-bg-color);
+      }
+    }
+  }
+  .sidemenu.el-menu:not(.el-menu--collapse) {
+    width: $side-width;
+  }
+  .collape-bar {
+    color: #fff;
+    font-size: 16px;
+    line-height: 36px;
+    text-align: center;
+
+    .c-icon {
+      cursor: pointer;
+    }
+  }
+}
+</style>
+```
+
+3：内容区域组件 PageMain.vue
+
+```vue
+<template>
+  <router-view></router-view>
+</template>
+<script>
+export default {
+  
+}
+</script>
+<style lang="">
+  
+</style>
+
+```
+
+然后访问首页如下：http://localhost:8777/#/
+
+![image-20230729211755648](images/image-20230729211755648.png)
+
+假设在开发中我们有一个控制面板菜单，而这个菜单的内容必须渲染到layout的右侧内容区域也就是pagemain.vue的位置，如何实现呢？
+
+1： 在page-main组件设定一个router-view标记
+
+2： 然后把 dashboard路由设置成为layout的在子路由如下：
+
+```js
+import { createRouter, createWebHashHistory } from 'vue-router'
+import NProgress from 'nprogress'
+// 获取状态管理的token
+import { useUserStore } from '@/stores/user.js'
+// 显示右上角螺旋加载提示
+NProgress.configure({ showSpinner: true })
+import Layout from "@/layout/Index.vue";
+
+const router = createRouter({
+  history: createWebHashHistory(import.meta.env.BASE_URL),
+  routes: [
+    {
+      path: "/",
+      name: "Home",
+      component: Layout,
+      children:[
+        {
+          path: '/dashboard',
+          name: 'Dashboard',
+          meta: { title: "dashboard" },
+          component: () => import('@/views/Dashboard.vue')
+        }    
+      ]
+    },    
+    {
+      path: '/login',
+      name: 'Login',
+      meta: { title: "login" },
+      component: () => import('@/views/Login.vue')
+    },
+    {
+      path: '/:pathMatch(.*)*',
+      name: 'NotFound',
+      component: () => import('@/views/NotFound.vue')
+    }
+  ]
+})
+
+
+
+router.beforeEach(async (to) => {
+  //开启进度条
+  NProgress.start()
+  const useStore = useUserStore();
+  // 判断是否登录
+  if (!useStore.isLogin && to.name !== 'Login') {
+    // 这里的query就是为了记录用户最后一次访问的路径，这个路径是通过to的参数获取
+    // 后续在登录成功以后，就可以根据这个path的参数，然后调整到你最后一次访问的路径
+    return { name: 'Login', query: { "path": to.path } }
+  } 
+  return true
+})
+
+router.afterEach(() => {
+  //完成进度条
+  NProgress.done()
+})
+
+
+export default router
+
+```
+
+当访问http://localhost:8777/#/dashboard 的时候就会把dashborad路由对应的spa页面/views/DashBoard.vue的页面内容渲染到layout/page-main.vue的router-view的位置。从而实现点击菜单展示到右侧，后续的业务菜单原理是一样的。如下：
+
+![image-20230729213120041](images/image-20230729213120041.png)
+
+
+
+
+
+## 静态菜单–不查数据库
+
+其实通过上面的案例其实就已经很清晰了。你需要自己去定义一个列表或者使用组件来形成一个菜单组件。从而给每个菜单项绑定一个路由地址，你就可以实现了所有的菜单结构。
+
+### 自定义菜单
+
+router/index.js把所有的模块都注册进来
+
+```js
+import { createRouter, createWebHashHistory } from 'vue-router'
+import NProgress from 'nprogress'
+// 获取状态管理的token
+import { useUserStore } from '@/stores/user.js'
+// 显示右上角螺旋加载提示
+NProgress.configure({ showSpinner: true })
+import Layout from "@/layout/Index.vue";
+import PageMain from "@/layout/components/PageMain.vue";
+
+const router = createRouter({
+  history: createWebHashHistory(import.meta.env.BASE_URL),
+  routes: [
+    {
+      path: "/",
+      name: "Home",
+      component: Layout,
+      children:[
+        {
+          path: 'dashboard',
+          name: 'Dashboard',
+          meta: { title: "dashboard" },
+          component: () => import('@/views/Dashboard.vue')
+        },
+        {
+          path: "app",
+          name: "App",
+          meta: {title:"app"},
+          redirect: '/app/user',
+          component: PageMain,
+          children: [
+            {
+              path: "user",
+              name: "AppUser",
+              meta: {title:"AppUser"},
+              component: () => import("@/views/app/User.vue"),
+            },
+            {
+              path: "dept",
+              name: "AppDept",
+              meta: {title:"AppDept"},
+              component: () => import("@/views/app/Dept.vue"),
+            },
+            {
+              path: "role",
+              name: "AppRole",
+              meta: {title:"AppRole"},
+              component: () => import("@/views/app/Role.vue"),
+            },
+            {
+              path: "resource",
+              name: "AppResource",
+              meta: {title:"AppResource"},
+              component: () => import("@/views/app/Resource.vue"),
+            }
+          ],
+        },
+        {
+          path: 'sys',
+          meta: {title:"sys"},
+          redirect: '/sys/user',
+          component: PageMain,
+          children: [
+            {
+              path: "user",
+              name: "SysUser",
+              meta: {title:"SysUser"},
+              component: () => import("@/views/sys/User.vue"),
+            },
+            {
+              path: "notice",
+              name: "SysNotice",
+              meta: {title:"SysNotice"},
+              component: () => import("@/views/sys/Notice.vue"),
+            }
+          ],
+        },
+        {
+          path: "logs",
+          name: "LogsManagement",
+          meta: {title:"logs"},
+          component: PageMain,
+          redirect: '/logs/visit',
+          children: [
+            {
+              path: "visit",
+              name: "VisitsLog",
+              meta: {title:"VisitsLog"},
+              component: () => import("@/views/logs/Visit.vue"),
+            },
+            {
+              path: "operation",
+              name: "OprationsLog",
+              meta: {title:"OprationsLog"},
+              component: () => import("@/views/logs/Operation.vue"),
+            }
+          ],
+        },       
+        ]
+      },    
+    {
+      path: '/login',
+      name: 'Login',
+      meta: { title: "login" },
+      component: () => import('@/views/Login.vue')
+    },
+    {
+      path: '/:pathMatch(.*)*',
+      name: 'NotFound',
+      component: () => import('@/views/NotFound.vue')
+    }
+  ]
+})
+
+
+
+router.beforeEach(async (to) => {
+  //开启进度条
+  NProgress.start()
+  const useStore = useUserStore();
+  // 判断是否登录
+  if (!useStore.isLogin && to.name !== 'Login') {
+    // 这里的query就是为了记录用户最后一次访问的路径，这个路径是通过to的参数获取
+    // 后续在登录成功以后，就可以根据这个path的参数，然后调整到你最后一次访问的路径
+    return { name: 'Login', query: { "path": to.path } }
+  } 
+  return true
+})
+
+router.afterEach(() => {
+  //完成进度条
+  NProgress.done()
+})
+
+
+export default router
+
+```
+
+自定义菜单-pagesilder.vue
+
+```vue
+<template>
+<div class="page-sidebar">
+   <ul>
+      <li><a style="color:#fff" href="/#/dashboard">控制面板</a></li>
+      <li><a style="color:#fff" href="/#/app/user">用户</a></li>
+      <li><a style="color:#fff" href="/#/app/role">角色</a></li>
+      <li><a style="color:#fff" href="/#/app/dept">部门</a></li>
+      <li><a style="color:#fff" href="/#/app/resource">资源</a></li>
+   </ul>
+   <ul>
+      <li><a style="color:#fff" href="/#/logs/visit">日志访问</a></li>
+      <li><a style="color:#fff" href="/#/logs/operation">日志operation</a></li>
+   </ul>
+   <ul>
+      <li><a style="color:#fff" href="/#/sys/user">系统用户</a></li>
+      <li><a style="color:#fff" href="/#/sys/notice">系统通知</a></li>
+   </ul>
+</div>
+</template>
+
+<script  setup>
+</script>
+
+<style lang="scss">
+$side-width: 200px;
+.page-sidebar {
+  height: 100vh;
+  background: #000;
+  .sidemenu.el-menu,
+  .sidemenu .el-sub-menu > .el-menu {
+    --el-menu-text-color: #ccc;
+    --el-menu-hover-bg-color: #060251;
+    --el-menu-border-color: transparent;
+    --el-menu-bg-color: #000;
+    .el-menu-item {
+      &.is-active {
+        background-color: var(--el-menu-hover-bg-color);
+      }
+    }
+  }
+  .sidemenu.el-menu:not(.el-menu--collapse) {
+    width: $side-width;
+  }
+  .collape-bar {
+    color: #fff;
+    font-size: 16px;
+    line-height: 36px;
+    text-align: center;
+
+    .c-icon {
+      cursor: pointer;
+    }
+  }
+}
+</style>
+```
+
+然后点击访问各个模块就可以在右侧进行展示和显示了。如下：
+
+![image-20230729215035476](images/image-20230729215035476.png)
+
+未来如果你要添加系统角色如下：步骤如下：
+
+1： 在views/sys/Role.vue
+
+2:  然后在sys路由下继续添加一个路由子项:
+
+```js
+import { createRouter, createWebHashHistory } from 'vue-router'
+import NProgress from 'nprogress'
+// 获取状态管理的token
+import { useUserStore } from '@/stores/user.js'
+// 显示右上角螺旋加载提示
+NProgress.configure({ showSpinner: true })
+import Layout from "@/layout/Index.vue";
+import PageMain from "@/layout/components/PageMain.vue";
+
+const router = createRouter({
+  history: createWebHashHistory(import.meta.env.BASE_URL),
+  routes: [
+    {
+      path: "/",
+      name: "Home",
+      component: Layout,
+      children:[
+        {
+          path: 'dashboard',
+          name: 'Dashboard',
+          meta: { title: "dashboard" },
+          component: () => import('@/views/Dashboard.vue')
+        },
+        {
+          path: "app",
+          name: "App",
+          meta: {title:"app"},
+          redirect: '/app/user',
+          component: PageMain,
+          children: [
+            {
+              path: "user",
+              name: "AppUser",
+              meta: {title:"AppUser"},
+              component: () => import("@/views/app/User.vue"),
+            },
+            {
+              path: "dept",
+              name: "AppDept",
+              meta: {title:"AppDept"},
+              component: () => import("@/views/app/Dept.vue"),
+            },
+            {
+              path: "role",
+              name: "AppRole",
+              meta: {title:"AppRole"},
+              component: () => import("@/views/app/Role.vue"),
+            },
+            {
+              path: "resource",
+              name: "AppResource",
+              meta: {title:"AppResource"},
+              component: () => import("@/views/app/Resource.vue"),
+            }
+          ],
+        },
+        {
+          path: 'sys',
+          meta: {title:"sys"},
+          redirect: '/sys/user',
+          component: PageMain,
+          children: [
+            {
+              path: "user",
+              name: "SysUser",
+              meta: {title:"SysUser"},
+              component: () => import("@/views/sys/User.vue"),
+            },
+            {
+              path: "notice",
+              name: "SysNotice",
+              meta: {title:"SysNotice"},
+              component: () => import("@/views/sys/Notice.vue"),
+            },
+            {
+              path: "role",
+              name: "SysRole",
+              meta: {title:"SysRole"},
+              component: () => import("@/views/sys/Role.vue"),
+            }
+          ],
+        },
+        {
+          path: "logs",
+          name: "LogsManagement",
+          meta: {title:"logs"},
+          component: PageMain,
+          redirect: '/logs/visit',
+          children: [
+            {
+              path: "visit",
+              name: "VisitsLog",
+              meta: {title:"VisitsLog"},
+              component: () => import("@/views/logs/Visit.vue"),
+            },
+            {
+              path: "operation",
+              name: "OprationsLog",
+              meta: {title:"OprationsLog"},
+              component: () => import("@/views/logs/Operation.vue"),
+            }
+          ],
+        },       
+        ]
+      },    
+    {
+      path: '/login',
+      name: 'Login',
+      meta: { title: "login" },
+      component: () => import('@/views/Login.vue')
+    },
+    {
+      path: '/:pathMatch(.*)*',
+      name: 'NotFound',
+      component: () => import('@/views/NotFound.vue')
+    }
+  ]
+})
+
+
+
+router.beforeEach(async (to) => {
+  //开启进度条
+  NProgress.start()
+  const useStore = useUserStore();
+  // 判断是否登录
+  if (!useStore.isLogin && to.name !== 'Login') {
+    // 这里的query就是为了记录用户最后一次访问的路径，这个路径是通过to的参数获取
+    // 后续在登录成功以后，就可以根据这个path的参数，然后调整到你最后一次访问的路径
+    return { name: 'Login', query: { "path": to.path } }
+  } 
+  return true
+})
+
+router.afterEach(() => {
+  //完成进度条
+  NProgress.done()
+})
+
+
+export default router
+
+```
+
+然后在page-silder.vue去增加一个菜单
+
+```vue
+<template>
+<div class="page-sidebar">
+   <ul>
+      <li><a style="color:#fff" href="/#/dashboard">控制面板</a></li>
+      <li><a style="color:#fff" href="/#/app/user">用户</a></li>
+      <li><a style="color:#fff" href="/#/app/role">角色</a></li>
+      <li><a style="color:#fff" href="/#/app/dept">部门</a></li>
+      <li><a style="color:#fff" href="/#/app/resource">资源</a></li>
+   </ul>
+   <ul>
+      <li><a style="color:#fff" href="/#/logs/visit">日志访问</a></li>
+      <li><a style="color:#fff" href="/#/logs/operation">日志operation</a></li>
+   </ul>
+   <ul>
+      <li><a style="color:#fff" href="/#/sys/user">系统用户</a></li>
+      <li><a style="color:#fff" href="/#/sys/notice">系统通知</a></li>
+      <li><a style="color:#fff" href="/#/sys/role">系统角色</a></li>
+   </ul>
+</div>
+</template>
+
+<script  setup>
+</script>
+
+<style lang="scss">
+$side-width: 200px;
+.page-sidebar {
+  height: 100vh;
+  background: #000;
+  .sidemenu.el-menu,
+  .sidemenu .el-sub-menu > .el-menu {
+    --el-menu-text-color: #ccc;
+    --el-menu-hover-bg-color: #060251;
+    --el-menu-border-color: transparent;
+    --el-menu-bg-color: #000;
+    .el-menu-item {
+      &.is-active {
+        background-color: var(--el-menu-hover-bg-color);
+      }
+    }
+  }
+  .sidemenu.el-menu:not(.el-menu--collapse) {
+    width: $side-width;
+  }
+  .collape-bar {
+    color: #fff;
+    font-size: 16px;
+    line-height: 36px;
+    text-align: center;
+
+    .c-icon {
+      cursor: pointer;
+    }
+  }
+}
+</style>
+```
+
+http://localhost:8777/#/sys/role
+
+![image-20230729215404923](images/image-20230729215404923.png)
+
+这种静态配置有利也有弊端，利：比较清晰和简单，一个页面一个路由一个菜单。然后访问，刷新也会自动定位。
+
+### 配置思维
+
+新建一个js
+
+```js
+export const menuTreeData = [
+    {
+        id:1,
+        parentId:0,
+        name:'App',
+        path:'/app',
+        icon:'menu',
+        children:[
+            {
+                id:11,
+                parentId:1,
+                name:'AppUser',
+                path:'/app/user',
+                icon:'user',
+            },
+            {
+                id:12,
+                parentId:1,
+                name:'AppDept',
+                path:'/app/dept',
+                icon:'office-building',
+            },
+            {
+                id:13,
+                parentId:1,
+                name:'AppRole',
+                path:'/app/role',
+                icon:'avatar',
+            },
+            {
+                id:14,
+                parentId:1,
+                name:'AppResource',
+                path:'/app/resource',
+                icon:'manage',
+            }
+        ]
+    },
+    {
+        id:2,
+        parentId:0,
+        name:'Sys',
+        path:'/sys',
+        icon:'setting',
+        children:[
+            {
+                id:21,
+                parentId:1,
+                name:'SysUser',
+                path:'/sys/user',
+                icon:'user-filled',
+            },
+            {
+                id:22,
+                parentId:1,
+                name:'SysNotice',
+                path:'/sys/notice',
+                icon:'',
+            }
+        ]
+    },
+    {
+        id:3,
+        parentId:0,
+        name:'Logs',
+        path:'/logs',
+        icon:'document',
+        children:[
+            {
+                id:31,
+                parentId:1,
+                name:'LogsVisit',
+                path:'/logs/visit',
+                icon:'tickets',
+            },
+            {
+                id:32,
+                parentId:1,
+                name:'LogsOperation',
+                path:'/logs/operation',
+                icon:'operation',
+            }
+        ]
+    }
+]
+
+
+```
+
+然后读取js的数据信息，进行处理，同时还可以进行国际化处理。你只要菜单名字使用国际化配置的key的名字然后使用{{ t(key)}} 就可以读取国际化的内容。如下：
+
+```VUE
+<template>
+  <div class="page-sidebar">
+    <div class="collape-bar">
+      <el-icon class="cursor" @click="isCollapse = !isCollapse">
+        <expand v-if="isCollapse" />
+        <fold v-else />
+      </el-icon>
+    </div>
+    <el-menu
+      active-text-color="#ffd04b"
+      background-color="#000000"
+      text-color="#fff"
+      router
+      :default-active="defaultActive"
+      class="sidemenu"
+      :collapse="isCollapse"
+      @open="handleOpen"
+      @close="handleClose"
+    >
+      <el-sub-menu v-for="(item, i) in menuTree" :key="i" :index="item.path">
+        <template #title>
+          <el-icon v-if="item.icon"><component :is="item.icon"></component></el-icon>
+          <span>{{ t(`menu.${item.name}`) }}</span>
+        </template>
+        <template v-for="(child, ci) in item.children" :key="ci">
+            <el-menu-item :index="child.path">
+              <el-icon><component :is="child.icon"></component></el-icon>
+              {{ t(`menu.${child.name}`) }}
+            </el-menu-item>
+          </template>
+      </el-sub-menu>
+    </el-menu>
+  </div>
+  </template>
+  
+  <script  setup>
+  const route = useRoute();
+  const { t } = useI18n();
+  const isCollapse = ref(false)
+  const menuTree = ref([
+    {
+      id: 1,
+      parentId: 0,
+      name: 'App',
+      path: "/app",
+      icon: "location",
+      children: [
+        {
+          id: 11,
+          parentId: 1,
+          name: 'AppUser',
+          path: "/app/user",
+          icon: "user",
+        },
+        {
+          id: 12,
+          parentId: 1,
+          name: 'AppDept',
+          path: "/app/dept",
+          icon: "office-building",
+        },
+        {
+          id: 13,
+          parentId: 1,
+          name: 'AppRole',
+          path: "/app/role",
+          icon: "avatar",
+        },
+        {
+          id: 14,
+          parentId: 1,
+          name: 'AppResource',
+          path: "/app/resource",
+          icon: "management",
+        },
+      ],
+    },
+    {
+      id: 2,
+      parentId: 0,
+      name: 'Sys',
+      path: "/sys",
+      icon: "setting",
+      children: [
+        {
+          id: 21,
+          parentId: 2,
+          name: 'SysUser',
+          path: "/sys/user",
+          icon: "user-filled",
+        },
+        {
+          id: 22,
+          parentId: 2,
+          name: 'SysNotice',
+          path: "/sys/notice",
+          icon: "chat-dot-round",
+        },
+      ],
+    },
+    {
+      id: 3,
+      parentId: 0,
+      name: 'Logs',
+      path: "/logs",
+      icon: "document",
+      children: [
+        {
+          id: 31,
+          parentId: 3,
+          name: 'LogsVisit',
+          path: "/logs/visit",
+          icon: "tickets",
+        },
+        {
+          id: 32,
+          parentId: 3,
+          name: 'LogsOperation',
+          path: "/logs/operation",
+          icon: "operation",
+        },
+      ],
+    },
+  ])
+  
+  const defaultActive = computed(() => route.path || menuTree.value[0].path)
+  const handleOpen = (key, keyPath) => {
+    console.log(key, keyPath)
+  }
+  const handleClose = (key, keyPath) => {
+    console.log(key, keyPath)
+  }
+  </script>
+  
+  <style lang="scss">
+  $side-width: 200px;
+  .page-sidebar {
+    .sidemenu.el-menu,
+    .sidemenu .el-sub-menu > .el-menu {
+      --el-menu-text-color: #ccc;
+      --el-menu-hover-bg-color: #060251;
+      --el-menu-border-color: transparent;
+      --el-menu-bg-color: #000;
+      .el-menu-item {
+        &.is-active {
+          background-color: var(--el-menu-hover-bg-color);
+        }
+      }
+    }
+    .sidemenu.el-menu:not(.el-menu--collapse) {
+      width: $side-width;
+    }
+
+    .collape-bar {
+      color: #fff;
+      font-size: 16px;
+      line-height: 36px;
+      text-align: center;
+  
+      .c-icon {
+        cursor: pointer;
+      }
+    }
+  }
+  </style>
+```
+
+
+
+## 菜单的路由访问和选中的问题
+
+通过上节课的处理我们使用el-menu的菜单组件，那么菜单组件你发现并没有编写的。如何完成el-menu菜单定位路由同事又可以选择和激活（选中）呢？方式如下：
+
+- index 
+
+  - 把index设置成路由地址，
+
+  - 同时增加router属性true
+
+  - ![image-20230730201617056](images/image-20230730201617056.png)
+
+    
+
+- default-active
+
+  这个激活的当前当前，也就说如果你设定的default-active和某个index的值的一致，那么就自动激活这个菜单，并且选中。其实在开发中我们更多希望达到的效果当前访问路径是什么。那么就选择什么。并且刷新以后也会自动定位到当前访问路由的菜单处。
+
+如何获取到当前访问的路由路径呢？
+
+```js
+import {useRoute} from 'vue-router'
+// 这个是用来获取当前访问的路由信息,
+const route = useRoute();
+// 根据当前路由来激活菜单
+const defaultActive = computed(()=>(route.path))
+
+```
+
+
+
+## 选中菜单颜色改变
+
+使用属性来激活你选中的菜单的文本颜色
+
+```vue
+ <el-menu 
+      active-text-color="#ffd04b" 
+   >
+```
+
+也通过css来覆盖它
+
+```html
+<div class="page-siderbar">
+ <el-menu 
+      active-text-color="#ffd04b" 
+      class="sidemenu"
+   >
+```
+
+```css
+.page-sidebar {
+  .sidemenu.el-menu,
+  .sidemenu .el-sub-menu>.el-menu {
+    --el-menu-text-color: #ccc;
+    --el-menu-hover-bg-color: #060251;
+    --el-menu-border-color: transparent;
+    --el-menu-bg-color: #000;
+
+    .el-menu-item {
+      &.is-active {
+        background-color: var(--el-menu-hover-bg-color);
+        color: #42d51d
+      }
+    }
+  }
+```
+
+## 菜单的折叠的问题
+
+
+
+```vue
+<template>
+	<el-menu 
+      active-text-color="#ffd04b" 
+      background-color="#000000" 
+      text-color="#fff" 
+      router
+      :default-active="defaultActive" 
+      class="sidemenu" 
+      :collapse="isCollapse" 
+      @open="handleOpen" 
+      @close="handleClose">
+....
+    
+</template>
+ <script>
+     // 默认情况下不折叠
+    const isCollapse = ref(false)
+ </script>
+<style>
+	/* elmenu菜单的折叠效果是通过属性：
+  :collapse="isCollapse"  原理就在控制在不停切换elmenu="el-menu--collapse"样式信息
+  1：ture 就折叠，就会使用图标宽度+padding作为菜单宽度
+  2: false 就不折叠，那么就使用默认宽度：200px
+
+  下面这行css是什么意思：
+  如果菜单上存在el-menu--collapse样式就说明是折叠状态，就使用图标宽度+padding作为菜单宽度
+  否则：就用我的width:200作为菜单宽度
+*/
+.sidemenu.el-menu:not(.el-menu--collapse) {
+width: 200px;
+}
+
+</style>
+```
+
+## 菜单的国际化问题
+
+1: 准备国际化的组件安装，看前面课程
+
+2: 先准备国际化的配置信息
+
+menu.js是中文：
+
+```js
+export default {
+  menu: {
+    DashBoard:"控制面板",
+    App: "应用管理",
+    AppUser: "用户管理",
+    AppDept: "机构管理",
+    AppRole: "角色管理",
+    AppResource: "资源管理",
+    AppPermission: "授权管理",
+    Sys: "系统管理",
+    SysUser: "用户管理",
+    SysNotice: "公告管理",
+    Logs: "审计管理",
+    LogsVisit: "访问日志",
+    LogsOperation: "操作日志",
+  }
+}
+
+```
+
+menuEn.js
+
+```js
+export default {
+  menu: {
+    DashBoard:"DashBoard",
+    App: "Website",
+    AppUser: "User",
+    AppDept: "Department",
+    AppRole: "Role",
+    AppResource: "Resource",
+    AppPermission: "Permission",
+    Sys: "System",
+    SysUser: "User",
+    SysNotice: "Notice",
+    Logs: "Logs",
+    LogsVisit: "Visits",
+    LogsOperation: "Operations",
+  }
+}
+
+```
+
+3：定义菜单的数据
+
+```js
+const menuTree = ref([
+  {
+    id: 4,
+    parentId: 0,
+    name: 'DashBoard',
+    path: "/dashboard",
+    icon: "home",
+    children:[]
+  },
+  {
+    id: 1,
+    parentId: 0,
+    name: 'App',
+    path: "/app",
+    icon: "location",
+    children: [
+      {
+        id: 11,
+        parentId: 1,
+        name: 'AppUser',
+        path: "/app/user",
+        icon: "user",
+      },
+      {
+        id: 12,
+        parentId: 1,
+        name: 'AppDept',
+        path: "/app/dept",
+        icon: "office-building",
+      },
+      {
+        id: 13,
+        parentId: 1,
+        name: 'AppRole',
+        path: "/app/role",
+        icon: "avatar",
+      },
+      {
+        id: 14,
+        parentId: 1,
+        name: 'AppResource',
+        path: "/app/resource",
+        icon: "management",
+      },
+    ],
+  },
+  {
+    id: 2,
+    parentId: 0,
+    name: 'Sys',
+    path: "/sys",
+    icon: "setting",
+    children: [
+      {
+        id: 21,
+        parentId: 2,
+        name: 'SysUser',
+        path: "/sys/user",
+        icon: "user-filled",
+      },
+      {
+        id: 22,
+        parentId: 2,
+        name: 'SysNotice',
+        path: "/sys/notice",
+        icon: "chat-dot-round",
+      },
+    ],
+  },
+  {
+    id: 3,
+    parentId: 0,
+    name: 'Logs',
+    path: "/logs",
+    icon: "document",
+    children: [
+      {
+        id: 31,
+        parentId: 3,
+        name: 'LogsVisit',
+        path: "/logs/visit",
+        icon: "tickets",
+      },
+      {
+        id: 32,
+        parentId: 3,
+        name: 'LogsOperation',
+        path: "/logs/operation",
+        icon: "operation",
+      },
+    ],
+  }
+])
+```
+
+注意这里菜单的name并不是明文，而是国际化的key的名字，你只要保持一致，然后在菜单显示的时候使用国际化的api方法t方法就可以把国际化中与之对应的语言的菜单信息显示出来。
+
+```js
+<template>  
+    <span>{{ t('menu.AppUser') }}</span>
+</template>
+<script setup>
+const { t } = useI18n();
+</script>
+
+```
+
+## 关于项目中vue.vue-router,pinia,vuex自动导入的问题
+
+在项目的vite.config.js文件中配置自动导入插件如下：
+
+```js
+import { fileURLToPath, URL } from 'node:url'
+import { defineConfig,loadEnv } from 'vite'
+import vue from '@vitejs/plugin-vue'
+import AutoImport from 'unplugin-auto-import/vite'
+import Components from 'unplugin-vue-components/vite'
+import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
+
+// https://vitejs.dev/config/
+export default defineConfig(({ command, mode }) => {
+  return {
+    // vite 配置
+    plugins: [
+      vue(),
+      AutoImport({
+        imports: ['vue', 'vue-router', 'pinia', 'vue-i18n'],
+        resolvers: [ElementPlusResolver()],
+      }),
+      Components({
+        resolvers: [ElementPlusResolver()],
+      })
+    ]
+  }
+})
+
+
+
+```
+
+这样配置以后，在后续的SPA或者SFC页面中，你可以省去vue,vue-router vuex ,vue-i18n的导入过程
+
+```js
+import { useI18n } from "vue-i18n";
+import { ref,computed } from "vue";
+import { useRoute } from "vue-router";
+
+// 这个是用来获取当前访问的路由信息,
+const route = useRoute();
+const { t } = useI18n();
+const isCollapse = ref(false)
+// 根据当前路由来激活菜单
+const defaultActive = computed(()=>(route.path))
+```
+
+配置以后你可以简化如下：
+
+```js
+// 这个是用来获取当前访问的路由信息,
+const route = useRoute();
+const { t } = useI18n();
+const isCollapse = ref(false)
+// 根据当前路由来激活菜单
+const defaultActive = computed(()=>(route.path))
+```
+
+## 动态菜单—查数据库
+
+关于动态菜单的数据获取的问题。一般有如下方式
+
+1： 在登录的时候 （推荐）
+
+2：路由的beforeEach 前置守卫中获取
+
+在登录时候，我们会直接把用户对应角色，角色对应菜单和权限会全部查询出来。如下：
+
+因为暂时还没有和真正数据库打交道。可以使用mock数据进行测试如下：
+
+```js
+export const users = [
+    {
+        name:"visitor",
+        roleId:"visitor",
+        password:"visitor"
+    },
+    {
+        name:"master",
+        roleId:"master",
+        password:"master"
+    },
+    {
+        name:"admin",
+        roleId:"admin",
+        password:"admin"
+    }
+]
+
+// 模拟服务端角色对应菜单信息--超级管理员
+export const menuTreeData = [
+    {
+        id:4,
+        parentId:0,
+        name:'DashBoard',
+        path:'/dashboard',
+        icon:'home',
+        children:[]
+    },
+    {
+        id:1,
+        parentId:0,
+        name:'App',
+        path:'/app',
+        icon:'menu',
+        children:[
+            {
+                id:11,
+                parentId:1,
+                name:'AppUser',
+                path:'/app/user',
+                icon:'user',
+            },
+            {
+                id:12,
+                parentId:1,
+                name:'AppDept',
+                path:'/app/dept',
+                icon:'office-building',
+            },
+            {
+                id:13,
+                parentId:1,
+                name:'AppRole',
+                path:'/app/role',
+                icon:'avatar',
+            },
+            {
+                id:14,
+                parentId:1,
+                name:'AppResource',
+                path:'/app/resource',
+                icon:'avatar',
+            }
+        ]
+    },
+    {
+        id:2,
+        parentId:0,
+        name:'Sys',
+        path:'/sys',
+        icon:'setting',
+        children:[
+            {
+                id:21,
+                parentId:1,
+                name:'SysUser',
+                path:'/sys/user',
+                icon:'user-filled',
+            },
+            {
+                id:22,
+                parentId:1,
+                name:'SysNotice',
+                path:'/sys/notice',
+                icon:'user-filled',
+            }
+        ]
+    },
+    {
+        id:3,
+        parentId:0,
+        name:'Logs',
+        path:'/logs',
+        icon:'document',
+        children:[
+            {
+                id:31,
+                parentId:1,
+                name:'LogsVisit',
+                path:'/logs/visit',
+                icon:'tickets',
+            },
+            {
+                id:32,
+                parentId:1,
+                name:'LogsOperation',
+                path:'/logs/operation',
+                icon:'operation',
+            }
+        ]
+    }
+]
+```
+
+然后在store/user.js中开始引入mock数据、同时定义menuTree的数据用于接收服务端或者mock的测试数据如下：
+
+```js
+import { defineStore } from 'pinia'
+import request from '@/request'
+import router from '@/router'
+import { menuTreeData } from '@/mock/data.js'
+
+//https://blog.csdn.net/weixin_62897746/article/details/129124364
+//https://prazdevs.github.io/pinia-plugin-persistedstate/guide/
+export const useUserStore = defineStore('user', {
+  // 定义状态
+  state: () => ({
+    user: {},
+    username: '',
+    userId: '',
+    token: '',
+    age:10,
+    male:1,
+    role:[],
+    permissions:[],
+    // 路由菜单，用来接收服务端传递过来的菜单数据
+    menuTree:[]
+  }),
+
+  // 就是一种计算属性的机制，定义的是函数，使用的是属性就相当于computed
+  getters:{
+
+    malestr(state){
+      if(state.male==1)return "男"
+      if(state.male==0)return "女"
+      if(state.male==1)return "保密"
+    },
+
+    isLogin(state){
+      return state.token ? true : false
+    },
+
+    roleName(state){
+      return state.roles && state.roles.map(r=>r.name).join(",")
+    },
+
+    permissionCode(state){
+      return state.permissions &&  state.permissions.map(r=>r.code).join(",")
+    }
+  },
+
+  // 定义动作
+  actions: {
+   setToken(newtoken){
+      this.token = newtoken
+   },
+
+   getToken(){
+    return this.token
+   },
+   
+   /* 登出*/
+   async LoginOut (){
+      this.token = ''
+      this.user = {}
+      this.username = ''
+      this.userId = ''
+      sessionStorage.clear()
+      localStorage.clear()
+      router.push({ name: 'Login', replace: true })
+      window.location.reload()
+  },
+  
+   async toLogin(loginUser){
+
+      // 查询用户信息，角色，权限，角色对应菜单
+      const resp = await request.post("login/toLogin", loginUser,{noToken:true})
+      // 这个会回退，回退登录页
+      var { user ,token,roles,permissions } = resp.data
+      // 登录成功以后获取到菜单信息, 这里要调用一
+      this.menuTree = menuTreeData
+      // 把数据放入到状态管理中
+      this.user = user
+      this.userId = user.id
+      this.username = user.name
+      this.token = token
+      this.roles = roles
+      this.permissions = permissions
+      return Promise.resolve(resp)
+    }
+  },
+  persist: {
+    key: 'kva-pinia-userstore',
+    storage: localStorage,//sessionStorage
+  }
+})
+```
+
+然后你在pageSider.vue中可以读取到菜单信息如下：
+
+```vue
+<template>
+  <div class="page-sidebar">
+    <div class="collape-bar">
+      <el-icon class="cursor" @click="isCollapse = !isCollapse">
+        <expand v-if="isCollapse" />
+        <fold v-else />
+      </el-icon>
+    </div>
+    <el-menu 
+      active-text-color="#ffd04b" 
+      background-color="#000000" 
+      text-color="#fff" 
+      router
+      :default-active="defaultActive" 
+      class="sidemenu" 
+      :collapse="isCollapse">
+      <template v-for="(item, i) in menuTree" :key="i">
+        <template v-if="item.children && item.children.length">
+          <el-sub-menu :index="item.path">
+            <template #title>
+              <el-icon v-if="item.icon">
+                <component :is="item.icon"></component>
+              </el-icon>
+              <span>{{ t(`menu.${item.name}`) }}</span>
+            </template>
+              <template v-for="(child, ci) in item.children" :key="ci">
+                <el-menu-item :index="child.path">
+                  <el-icon>
+                    <component :is="child.icon"></component>
+                  </el-icon>
+                  {{ t(`menu.${child.name}`) }}
+                </el-menu-item>
+            </template>
+          </el-sub-menu>
+        </template>
+        <template v-else>
+          <el-menu-item :index="item.path">
+            <el-icon v-if="item.icon">
+              <component :is="item.icon"></component>
+            </el-icon>
+            <span>{{ t(`menu.${item.name}`) }}</span>
+          </el-menu-item>
+        </template>
+      </template>
+    </el-menu>
+  </div>
+</template>
+  
+<script  setup>
+import { useUserStore } from '@/stores/user.js'
+// 这个是用来获取当前访问的路由信息,
+const route = useRoute();
+const { t } = useI18n();
+// 默认情况下不折叠
+const isCollapse = ref(false)
+// 根据当前路由来激活菜单
+const defaultActive = computed(()=>(route.path))
+// 获取状态管理的菜单信息
+const userStore = useUserStore();
+// 如何获取菜单数据呢？
+const menuTree = computed(()=>userStore.menuTree)
+
+</script>
+<style lang="scss">
+.page-sidebar {
+  .sidemenu.el-menu,
+  .sidemenu .el-sub-menu>.el-menu {
+    --el-menu-text-color: #ccc;
+    --el-menu-hover-bg-color: #060251;
+    --el-menu-border-color: transparent;
+    --el-menu-bg-color: #000;
+
+    .el-menu-item {
+      &.is-active {
+        background-color: var(--el-menu-hover-bg-color);
+        color: #42d51d
+      }
+    }
+  }
+
+   /* elmenu菜单的折叠效果是通过属性：
+      :collapse="isCollapse"  原理就在控制在不停切换elmenu="el-menu--collapse"样式信息
+      1：ture 就折叠，就会使用图标宽度+padding作为菜单宽度
+      2: false 就不折叠，那么就使用默认宽度：200px
+
+      下面这行css是什么意思：
+      如果菜单上存在el-menu--collapse样式就说明是折叠状态，就使用图标宽度+padding作为菜单宽度
+      否则：就用我的width:200作为菜单宽度
+   */
+  .sidemenu.el-menu:not(.el-menu--collapse) {
+    width: 200px;
+  }
+
+  .collape-bar {
+    color: #fff;
+    font-size: 16px;
+    line-height: 36px;
+    text-align: center;
+
+    .c-icon {
+      cursor: pointer;
+    }
+  }
+}
+</style>
+```
+
+然后刷新访问，如果无效可以关闭服务器重新启动把缓存全部清空在登录在尝试如下：
+
+![image-20230730211551695](images/image-20230730211551695.png)
+
+
+
+## 动态菜单的思考
+
+你觉得上面之所以可以，是因为现在数据库里的菜单和vue-router/index.js配置的路由菜单以及在views的定义菜单对应路由的spa都存在。所以你能够一个非常正常效果。
+
+- views/mode/spa
+- vue-router/index.js也配置spa的路由对应访问路径
+- 数据库里刚好和他们一致。
+
+但是往往开发中，你觉得会出现什么问题。比如：
+
+- 一个添加了菜单，但是没有添加spa也没有添加vue-router肯定不可以访问。
+
+如果你按照正常流程你应该是怎么做：
+
+- 第一步：先定义spa
+- 第二步：配置一个路由来调整spa页面 
+- 第三步：在数据库在配置一个菜单
+
+
+
+所谓的动态菜单：其实就简化后续模块的新增和变化，不需要在vue-router/index.js配置路由，然后在数据库中添加一个菜单，然后在views添加一个页面，你就访问到对应的菜单。
+
+具体实现步骤：
+
+1: 把所有home首页子路由全部去掉如下：
+
+```js
+import { createRouter, createWebHashHistory } from 'vue-router'
+import NProgress from 'nprogress'
+// 获取状态管理的token
+import { useUserStore } from '@/stores/user.js'
+// 显示右上角螺旋加载提示
+NProgress.configure({ showSpinner: true })
+import Layout from "@/layout/Index.vue";
+import PageMain from "@/layout/components/PageMain.vue";
+
+const router = createRouter({
+  history: createWebHashHistory(import.meta.env.BASE_URL),
+  routes: [
+    {
+      path: "/",
+      name: "Home",
+      component: Layout,
+      redirect:"/dashboard"
+    },    
+    {
+      path: '/login',
+      name: 'Login',
+      meta: { title: "login" },
+      component: () => import('@/views/Login.vue')
+    },
+    {
+      path: '/:pathMatch(.*)*',
+      name: 'NotFound',
+      component: () => import('@/views/NotFound.vue')
+    }
+  ]
+})
+
+
+
+router.beforeEach(async (to) => {
+  //开启进度条
+  NProgress.start()
+  const useStore = useUserStore();
+  // 判断是否登录
+  if (!useStore.isLogin && to.name !== 'Login') {
+    // 这里的query就是为了记录用户最后一次访问的路径，这个路径是通过to的参数获取
+    // 后续在登录成功以后，就可以根据这个path的参数，然后调整到你最后一次访问的路径
+    return { name: 'Login', query: { "path": to.path } }
+  } 
+  return true
+})
+
+router.afterEach(() => {
+  //完成进度条
+  NProgress.done()
+})
+
+
+export default router
+
+```
+
+2: 然后通过vue-router的js方法完成动态路由的创建，
+
+一句话：就使用js的方法来完成首页children的拼接和处理。
+
+而这个children的数据是通过：服务端返回的菜单数据和views定义路由页面组合而成的。
+
+```js
+children = [
+    {
+       // 这些从复服务端返回的菜单数据来
+      path: 'dashboard',
+      name: 'Dashboard',
+      meta: { title: "dashboard" },
+      // 这个从views里而来 ，这里命名就非常关键
+      component: () => import('@/views/Dashboard.vue')
+    }
+]
+```
+
+```js
+router.addRoute(“Home”,children)
+```
+
+
+
+
+
+## vue-router
+
+https://router.vuejs.org/zh/guide/advanced/dynamic-routing.html
+
+### 为什么要配置动态路由
+
+- 因为菜单是由数据库来管理的
+  - 如果在数据库里添加一个菜单，你必须要做两个事情你添加到数据库路由才会由意义
+  - 第一个条件：必须在router/index.js的routes进行定义和配置
+  - 第二个条件：你必须还为路由配置路由页面/views/xxx/xxxx.vue
+- 因为后续开发我们的菜单是根据用户的角色来决定和显示的。我们如果去写死的话，就不灵活
+- 你思考如果你角色由10个，那么你必须配置10不同的菜单，而10个菜单数据，其实就可能有些多了一些菜单，有些少了一些菜单，那么为什么不把他们存在数据库，来进行一种关联映射，然后定义接口。根据用户查询对应角色，然后根据角色查询对应菜单。然后在返回菜单数据。那么不完美了么。
+- 我们唯独在后台中要去开发的就如果还把菜单添加，然后动态绑定给角色。然后又如何把角色绑定给用户。
+
+
+
+## 动态路由又什么好处呢？
+
+-  简化的前端路由的注册的过程，其实就完成了手动静态注册的过程。如果实在不喜欢，你可以考虑还原成静态注册方式。
+
+
+
+## 关于elementplus中的dialog,message,messagebox的认识和使用
+
+
+
+### messageBox
+
+https://element-plus.gitee.io/zh-CN/component/message-box.html
+
+从设计上来说，MessageBox 的作用是美化系统自带的 `alert`、`confirm` 和 `prompt`，因此适合展示较为简单的内容。 如果需要弹出较为复杂的内容，请使用 Dialog。
+
+```js
+import { ElMessage, ElMessageBox } from 'element-plus'
+```
+
+alert
+
+```js
+ElMessageBox.alert('This is a message', 'Title', {
+    // if you want to disable its autofocus
+    // autofocus: false,
+    confirmButtonText: 'OK',
+    callback: (action: Action) => {
+      ElMessage({
+        type: 'info',
+        message: `action: ${action}`,
+      })
+    },
+  })
+```
+
+confirm
+
+```js
+ElMessageBox.confirm(
+    'proxy will permanently delete the file. Continue?',
+    'Warning',
+    {
+      confirmButtonText: 'OK',
+      cancelButtonText: 'Cancel',
+      type: 'warning',
+    }
+  )
+    .then(() => {
+      ElMessage({
+        type: 'success',
+        message: 'Delete completed',
+      })
+    })
+    .catch(() => {
+      ElMessage({
+        type: 'info',
+        message: 'Delete canceled',
+      })
+    })
+```
+
+prompt
+
+```js
+ElMessageBox.prompt('Please input your e-mail', 'Tip', {
+    confirmButtonText: 'OK',
+    cancelButtonText: 'Cancel',
+    inputPattern:
+      /[\w!#$%&'*+/=?^_`{|}~-]+(?:\.[\w!#$%&'*+/=?^_`{|}~-]+)*@(?:[\w](?:[\w-]*[\w])?\.)+[\w](?:[\w-]*[\w])?/,
+    inputErrorMessage: 'Invalid Email',
+  })
+    .then(({ value }) => {
+      ElMessage({
+        type: 'success',
+        message: `Your email is:${value}`,
+      })
+    })
+    .catch(() => {
+      ElMessage({
+        type: 'info',
+        message: 'Input canceled',
+      })
+    })
+```
+
+使用 HTML 片段
+
+```js
+ ElMessageBox.alert(
+    '<strong>proxy is <i>HTML</i> string</strong>',
+    'HTML String',
+    {
+      dangerouslyUseHTMLString: true,
+    }
+  )
+```
+
+自己封装的处理
+
+```js
+const KVA = {
+    alert(title,content,options){
+        // 默认值
+        var defaultOptions = {icon:"warning",confirmButtonText:"确定",cancelButtonText:"取消"}
+        // 用户传递和默认值就行覆盖处理
+        var opts = {...defaultOptions,...options}
+        return ElMessageBox.alert(content, title,{
+            //确定按钮文本
+            confirmButtonText: opts.confirmButtonText,
+            // 内容支持html
+            dangerouslyUseHTMLString: true,
+            // 是否支持拖拽
+            draggable: true,
+            // 修改图标
+            type: opts.icon
+        })
+    },
+    confirm(title,content,options){
+        // 默认值
+        var defaultOptions = {icon:"warning",confirmButtonText:"确定",cancelButtonText:"取消"}
+        // 用户传递和默认值就行覆盖处理
+        var opts = {...defaultOptions,...options}
+        // 然后提示
+        return ElMessageBox.confirm(content, title, {
+           //确定按钮文本
+           confirmButtonText: opts.confirmButtonText,
+           //取消按钮文本
+           cancelButtonText: opts.cancelButtonText,
+           // 内容支持html
+           dangerouslyUseHTMLString: true,
+           // 是否支持拖拽
+           draggable: true,
+           // 修改图标
+           type: opts.icon,
+        })
+    },
+    prompt(title,content,options){
+        // 默认值
+        var defaultOptions = {confirmButtonText:"确定",cancelButtonText:"取消"}
+        // 用户传递和默认值就行覆盖处理
+        var opts = {...defaultOptions,...options}
+        return ElMessageBox.prompt(content, title, {
+            //确定按钮文本
+            confirmButtonText: opts.confirmButtonText,
+            //取消按钮文本
+            cancelButtonText: opts.cancelButtonText,
+            // 内容支持html
+            dangerouslyUseHTMLString: true,
+            // 是否支持拖拽
+            draggable: true,
+            // 输入框的正则验证
+            inputPattern: opts.pattern,
+            // 验证的提示内容
+            inputErrorMessage: opts.message||'请输入正确的内容',
+          })
+    }
+}
+
+export default  KVA
+```
+
+其实在elementplus注册到vue的时候如下：
+
+```js
+import ElementPlus from 'element-plus'
+app.use(ElementPlus)
+```
+
+就会常用message,messagebox,dialog等都注册一份挂载到`app.config.globalProperties` 下。添加如下全局方法：`$msgbox`、 `$alert`、 `$confirm` 和 `$prompt`。 因此在 Vue 实例中可以采用本页面中的方式来调用`MessageBox`。 参数如下：
+
+- `$msgbox(options)`
+- `$alert(message, title, options)` 或 `$alert(message, options)`
+- `$confirm(message, title, options)` 或 `$confirm(message, options)`
+- `$prompt(message, title, options)` 或 `$prompt(message, options)`
+
+
+
+那么如何拿到这个app.config.globalProperties对象。步骤如下：
+
+```js
+import {getCurrentInstance} from 'vue'
+const {proxy} = getCurrentInstance();
+
+proxy.$alert(message, title, options)
+proxy.$confirm(message, title, options)
+proxy.$prompt(message, title, options)
+```
+
+如果是vue2的话
+
+```js
+this.$alert(message, title, options)
+this.$confirm(message, title, options)
+this.$prompt(message, title, options)
+```
+
+## 样式调整问题
+
+base.css
+
+```css
+html,
+body {
+  height: 100%;
+}
+#app {
+  height: 100%;
+  overflow: hidden;
+}
+.flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.cursor {
+  cursor: pointer;
+}
+.txt-c {
+  text-align: center;
+}
+.w100p {
+  width: 100%;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+  background-color: #f5f5f5;
+}
+
+::-webkit-scrollbar-button {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+::-webkit-scrollbar-track {
+  background-color: #f5f5f5;
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #c9c9c9;
+  border-radius: 5px;
+}
+
+.kva-container{padding:5px;overflow: hidden;}
+.kva-contentbox{background:#fff;padding:15px;}
+.kva-pagination-box{margin-top: 15px;display: flex;}
+.kva-pagination-box.left{justify-content: flex-start;}
+.kva-pagination-box.center{justify-content: center;}
+.kva-pagination-box.right{justify-content: flex-end;}
+.kva-form-search{border-bottom: 1px solid #e7e7e7;}
+```
+
+pagesilder.vue
+
+```vue
+<template>
+  <div class="page-sidebar">
+    <div class="collape-bar">
+      <el-icon class="cursor" @click="isCollapse = !isCollapse">
+        <expand v-if="isCollapse" />
+        <fold v-else />
+      </el-icon>
+    </div>
+    <el-menu 
+      active-text-color="#333" 
+      background-color="#ffffff" 
+      text-color="#333" 
+      router
+      :default-active="defaultActive" 
+      class="sidemenu" 
+      :collapse="isCollapse">
+      <template v-for="(item, i) in menuTree" :key="i">
+        <template v-if="item.children && item.children.length">
+          <el-sub-menu :index="item.path">
+            <template #title>
+              <el-icon v-if="item.icon">
+                <component :is="item.icon"></component>
+              </el-icon>
+              <span>{{ t(`menu.${item.name}`) }}</span>
+            </template>
+              <template v-for="(child, ci) in item.children" :key="ci">
+                <el-menu-item :index="child.path">
+                  <el-icon>
+                    <component :is="child.icon"></component>
+                  </el-icon>
+                  {{ t(`menu.${child.name}`) }}
+                </el-menu-item>
+            </template>
+          </el-sub-menu>
+        </template>
+        <template v-else>
+          <el-menu-item :index="item.path">
+            <el-icon v-if="item.icon">
+              <component :is="item.icon"></component>
+            </el-icon>
+            <span>{{ t(`menu.${item.name}`) }}</span>
+          </el-menu-item>
+        </template>
+      </template>
+    </el-menu>
+  </div>
+</template>
+  
+<script  setup>
+import { useUserStore } from '@/stores/user.js'
+// 这个是用来获取当前访问的路由信息,
+const route = useRoute();
+const { t } = useI18n();
+// 默认情况下不折叠
+const isCollapse = ref(false)
+// 根据当前路由来激活菜单
+const defaultActive = computed(()=>(route.path))
+// 获取状态管理的菜单信息
+const userStore = useUserStore();
+// 如何获取菜单数据呢？
+const menuTree = computed(()=>userStore.menuTree)
+
+</script>
+<style lang="scss">
+$slider-width: 180px;
+.page-sidebar {
+  height: calc(100vh - 90px);
+  overflow: hidden auto;
+  .sidemenu.el-menu,
+  .sidemenu .el-sub-menu>.el-menu {
+    --el-menu-text-color: #ccc;
+    --el-menu-hover-bg-color: #060251;
+    --el-menu-border-color: transparent;
+    --el-menu-bg-color: #001529;
+
+    .el-menu-item {
+      &.is-active {
+        background-color: #e6f7ff;
+        color: #1890ff
+      }
+    }
+  }
+
+   /* elmenu菜单的折叠效果是通过属性：
+      :collapse="isCollapse"  原理就在控制在不停切换elmenu="el-menu--collapse"样式信息
+      1：ture 就折叠，就会使用图标宽度+padding作为菜单宽度
+      2: false 就不折叠，那么就使用默认宽度：200px
+
+      下面这行css是什么意思：
+      如果菜单上存在el-menu--collapse样式就说明是折叠状态，就使用图标宽度+padding作为菜单宽度
+      否则：就用我的width:200作为菜单宽度
+   */
+  .sidemenu.el-menu:not(.el-menu--collapse) {
+    width: $slider-width;
+  }
+
+  .collape-bar {
+    color: #333;
+    font-size: 16px;
+    line-height: 36px;
+    position: fixed;
+    z-index: 2;
+    width: 100%;
+    left:20px;
+    bottom: 0;
+    .c-icon {
+      cursor: pointer;
+    }
+  }
+}
+</style>
+```
+
+## 面包屑的处理和思考
+
+https://element-plus.gitee.io/zh-CN/component/breadcrumb.html#%E5%9F%BA%E7%A1%80%E7%94%A8%E6%B3%95
+
+有时候位了让我们路径更加的清晰，和让操作者知道你所在菜单的位置，一般会在右侧的页面增加面包屑
+
+==作用：显示当前页面的路径，快速返回之前的任意页面。==
+
+```vue
+<el-breadcrumb separator="/">
+  <el-breadcrumb-item :to="{ path: '/' }">首页</el-breadcrumb-item>---root
+  <el-breadcrumb-item>系统管理</el-breadcrumb-item>-----parent
+  <el-breadcrumb-item>用户管理</el-breadcrumb-item>-----children
+</el-breadcrumb>
+```
+
+如果使用手动的方式，每个页面去增加，这样维护起来是非常麻烦的。如果后续发生变化和变动，以及国际化的处理都会变得非常的麻烦。怎么办？其实你可以这样思考。我们访问路径是不可以拿到。`route.path` —–`/sys/user` 
+
+- children === path = /sys/user—–然后开始遍历获取到信息—-SysUser—-然后使用国际化进行处理即可
+- parent==== path =/sys 然后开始遍历获取到信息—-Sys—-然后使用国际化进行处理即可
+
+
+
+实现步骤：
+
+1: 定义组件 HomePageHeader.vue
+
+```vue
+<template>
+    <div>
+        <el-breadcrumb separator="/">
+            <el-breadcrumb-item :to="{ path: '/' }">
+                首页
+            </el-breadcrumb-item>
+            <el-breadcrumb-item v-if="parentName">
+                <a href="javascript:void(0);">{{ t('menu.'+parentName) }}</a>
+            </el-breadcrumb-item>
+            <el-breadcrumb-item v-if="isChildren">
+                <a href="javascript:void(0);">{{ t('menu.'+route.meta.name) }}</a>
+            </el-breadcrumb-item>
+        </el-breadcrumb>
+        <div style="padding:15px 0">
+            <slot></slot>
+        </div>
+    </div>
+</template>
+<script setup>
+// 获取到当前路由
+const route = useRoute()
+// 获取国际化
+const { t } = useI18n();
+// 判断是不是有子元素, 因为在菜单中存在一种没有子的情况，这个时候就没有第二级。
+const isChildren = ref(true)
+// 获取菜单数据
+import { menuTreeData } from '@/mock/data.js'
+
+console.log('route',route)
+
+// 开始截取当前的访问路径，比如：/sys/user
+let parentPath = route.path.substring(0,route.path.indexOf('/',2))//得到的是：/sys
+if(!parentPath){ 
+    parentPath  = route.path
+    // 代表你没有子元素
+    isChildren.value = false;
+}
+// 如果有子元素，可以把去查找菜单信息
+const parentName = menuTreeData.find(obj=>obj.path==parentPath).name
+
+</script>
+<style>
+</style>
+```
+
+2: 组件必须要进行注册
+
+建议使用全局注册，这样就不需要每个spa页面进行引入以后才能使用如下：
+
+vue3插件机制如下：
+
+```js
+import HomePageHeader from './HomePageHeader.vue'
+export default {
+    install(app){
+        // const modules = import.meta.glob('../components/**/*.vue');
+        // for(let key in modules){
+        //     var componentName = key.substring(key.lastIndexOf('/')+1,key.lastIndexOf("."))
+        //     app.component(componentName,modules[key])
+        // }
+
+        // 全局注册组件
+        app.component("HomePageHeader",HomePageHeader)
+    }
+}
+```
+
+你也可以使用全自动注册
+
+```js
+export default {
+    install(app){
+        // 全自动化过程注册全局组件，就不需要在引入在注册
+        // 把src/components目录下的以.vue结尾的文件全部匹配出来。包括子孙目录下的.vue结尾的文件
+         const modules = import.meta.glob('../components/**/*.vue');
+         for(let key in modules){
+             var componentName = key.substring(key.lastIndexOf('/')+1,key.lastIndexOf("."))
+             app.component(componentName,modules[key])
+         }
+    }
+}
+```
+
+这样的好处就是，不需要你增加组件，又来到处和注册一次，省去了这个步骤。
+
+然后在main.js进行插件生效注册。
+
+```js
+import { createApp } from 'vue'
+import KVAComponents from '@/components'
+
+const app = createApp(App)
+app.use(KVAComponents)
+```
+
+3: 然后在每个需要使用面包屑地方进行使用` <home-page-header>` 进行包裹即可，如下：
+
+```vue
+<template>
+  <div class="kva-container">
+    <div class="kva-contentbox">
+      <home-page-header>
+        <div class="kva-form-search">
+          <el-form :inline="true" :model="queryParams">
+            <el-form-item>
+              <el-button type="primary" v-permission="[10001]" icon="Plus" @click="handleAdd">添加</el-button>
+              <el-button type="danger"  v-permission="[20001]" icon="Delete" @click="handleDel">删除</el-button>
+            </el-form-item>
+            <el-form-item label="关键词：">
+              <el-input v-model="queryParams.keyword" placeholder="请输入搜索关键词..." maxlength="10" clearable />
+            </el-form-item>
+            <el-form-item label="关键词：">
+              <el-input v-model="queryParams.name" placeholder="请输入名字..." maxlength="10" clearable />
+            </el-form-item>
+            <el-form-item>
+              <el-button type="primary" icon="Search" @click="onSubmit">搜索</el-button>
+            </el-form-item>
+          </el-form>
+        </div>
+        <el-table :data="tableData" style="width: 100%" height="calc(100vh - 218px)">
+          <el-table-column fixed prop="date" label="Date" width="150" />
+          <el-table-column prop="name" label="Name" width="120" />
+          <el-table-column prop="state" label="State" width="120" />
+          <el-table-column prop="city" label="City" width="320" />
+          <el-table-column prop="address" label="Address" />
+          <el-table-column fixed="right" prop="zip" label="Zip" width="120" />
+        </el-table>
+        <div class="kva-pagination-box">
+          <el-pagination
+            v-model:current-page="currentPage4"
+            v-model:page-size="pageSize4"
+            :page-sizes="[100, 200, 300, 400]"
+            :small="small"
+            :disabled="disabled"
+            :background="background"
+            layout="total, sizes, prev, pager, next, jumper"
+            :total="400"
+            @size-change="handleSizeChange"
+            @current-change="handleCurrentChange"
+          />
+        </div>
+      </home-page-header>
+    </div>
+  </div>
+</template>
+
+<script  setup>
+import KVA from '@/utils/kva.js'
+import { ElMessage } from 'element-plus';
+const {proxy} = getCurrentInstance();
+
+// 搜索属性定义
+const queryParams = reactive({
+name:"",
+keyword:""
+})
+
+// 添加事件
+const handleAdd = ()=>{
+KVA.notify("注册提示","感谢你注册平台,<a href=''>点击此处进入查看</a>",3000,{type:"success",position:"br"})
+}
+
+// 删除事件
+// const handleDel = async ()=>{
+//   try{
+//     const response =  await KVA.confirm("警告","你确定要抛弃我么？",{icon:"info"})
+//     alert("去请求你要删除的异步请求的方法把")
+//   }catch(e){
+//     alert("你点击的是关闭或者取消按钮")
+//   }
+// }
+
+const handleDel =  ()=>{
+  KVA.confirm("警告","<strong>你确定要抛弃我么？</strong>",{icon:"success"}).then(()=>{
+    KVA.message("去请求你要删除的异步请求的方法把")
+  }).catch(err=>{
+    KVA.error("你点击的是关闭或者取消按钮")
+    //proxy.$message({message:"你点击的是关闭或者取消按钮",type:"success",showClose:true})
+    //proxy.$message({message:"你点击的是关闭或者取消按钮",type:"warining",showClose:true})
+    //proxy.$message({message:"你点击的是关闭或者取消按钮",type:"error",showClose:true})
+  })
+
+  // proxy.$confirm("<strong>你确定要抛弃我么？</strong>","警告",{type:"success",dangerouslyUseHTMLString:true}).then(()=>{
+  //   alert("去请求你要删除的异步请求的方法把")
+  // }).catch(err=>{
+  //   alert("你点击的是关闭或者取消按钮")
+  // })
+}
+
+
+const tableData = [
+{
+  date: '2016-05-03',
+  name: 'Tom',
+  state: 'California',
+  city: 'Los Angeles',
+  address: 'No. 189, Grove St, Los Angeles',
+  zip: 'CA 90036',
+},
+{
+  date: '2016-05-02',
+  name: 'Tom',
+  state: 'California',
+  city: 'Los Angeles',
+  address: 'No. 189, Grove St, Los Angeles',
+  zip: 'CA 90036',
+},
+{
+  date: '2016-05-04',
+  name: 'Tom',
+  state: 'California',
+  city: 'Los Angeles',
+  address: 'No. 189, Grove St, Los Angeles',
+  zip: 'CA 90036',
+},
+{
+  date: '2016-05-01',
+  name: 'Tom',
+  state: 'California',
+  city: 'Los Angeles',
+  address: 'No. 189, Grove St, Los Angeles',
+  zip: 'CA 90036',
+},
+{
+  date: '2016-05-08',
+  name: 'Tom',
+  state: 'California',
+  city: 'Los Angeles',
+  address: 'No. 189, Grove St, Los Angeles',
+  zip: 'CA 90036',
+},
+{
+  date: '2016-05-06',
+  name: 'Tom',
+  state: 'California',
+  city: 'Los Angeles',
+  address: 'No. 189, Grove St, Los Angeles',
+  zip: 'CA 90036',
+},
+{
+  date: '2016-05-07',
+  name: 'Tom',
+  state: 'California',
+  city: 'Los Angeles',
+  address: 'No. 189, Grove St, Los Angeles',
+  zip: 'CA 90036',
+},
+{
+  date: '2016-05-03',
+  name: 'Tom',
+  state: 'California',
+  city: 'Los Angeles',
+  address: 'No. 189, Grove St, Los Angeles',
+  zip: 'CA 90036',
+},
+{
+  date: '2016-05-02',
+  name: 'Tom',
+  state: 'California',
+  city: 'Los Angeles',
+  address: 'No. 189, Grove St, Los Angeles',
+  zip: 'CA 90036',
+},
+{
+  date: '2016-05-04',
+  name: 'Tom',
+  state: 'California',
+  city: 'Los Angeles',
+  address: 'No. 189, Grove St, Los Angeles',
+  zip: 'CA 90036',
+},
+{
+  date: '2016-05-01',
+  name: 'Tom',
+  state: 'California',
+  city: 'Los Angeles',
+  address: 'No. 189, Grove St, Los Angeles',
+  zip: 'CA 90036',
+},
+{
+  date: '2016-05-08',
+  name: 'Tom',
+  state: 'California',
+  city: 'Los Angeles',
+  address: 'No. 189, Grove St, Los Angeles',
+  zip: 'CA 90036',
+},
+{
+  date: '2016-05-06',
+  name: 'Tom',
+  state: 'California',
+  city: 'Los Angeles',
+  address: 'No. 189, Grove St, Los Angeles',
+  zip: 'CA 90036',
+},
+{
+  date: '2016-05-07',
+  name: 'Tom',
+  state: 'California',
+  city: 'Los Angeles',
+  address: 'No. 189, Grove St, Los Angeles',
+  zip: 'CA 90036',
+},
+{
+  date: '2016-05-03',
+  name: 'Tom',
+  state: 'California',
+  city: 'Los Angeles',
+  address: 'No. 189, Grove St, Los Angeles',
+  zip: 'CA 90036',
+},
+{
+  date: '2016-05-02',
+  name: 'Tom',
+  state: 'California',
+  city: 'Los Angeles',
+  address: 'No. 189, Grove St, Los Angeles',
+  zip: 'CA 90036',
+},
+{
+  date: '2016-05-04',
+  name: 'Tom',
+  state: 'California',
+  city: 'Los Angeles',
+  address: 'No. 189, Grove St, Los Angeles',
+  zip: 'CA 90036',
+},
+{
+  date: '2016-05-01',
+  name: 'Tom',
+  state: 'California',
+  city: 'Los Angeles',
+  address: 'No. 189, Grove St, Los Angeles',
+  zip: 'CA 90036',
+},
+{
+  date: '2016-05-08',
+  name: 'Tom',
+  state: 'California',
+  city: 'Los Angeles',
+  address: 'No. 189, Grove St, Los Angeles',
+  zip: 'CA 90036',
+},
+{
+  date: '2016-05-06',
+  name: 'Tom',
+  state: 'California',
+  city: 'Los Angeles',
+  address: 'No. 189, Grove St, Los Angeles',
+  zip: 'CA 90036',
+},
+{
+  date: '2016-05-07',
+  name: 'Tom',
+  state: 'California',
+  city: 'Los Angeles',
+  address: 'No. 189, Grove St, Los Angeles',
+  zip: 'CA 90036',
+},
+{
+  date: '2016-05-03',
+  name: 'Tom',
+  state: 'California',
+  city: 'Los Angeles',
+  address: 'No. 189, Grove St, Los Angeles',
+  zip: 'CA 90036',
+},
+{
+  date: '2016-05-02',
+  name: 'Tom',
+  state: 'California',
+  city: 'Los Angeles',
+  address: 'No. 189, Grove St, Los Angeles',
+  zip: 'CA 90036',
+},
+{
+  date: '2016-05-04',
+  name: 'Tom',
+  state: 'California',
+  city: 'Los Angeles',
+  address: 'No. 189, Grove St, Los Angeles',
+  zip: 'CA 90036',
+},
+{
+  date: '2016-05-01',
+  name: 'Tom',
+  state: 'California',
+  city: 'Los Angeles',
+  address: 'No. 189, Grove St, Los Angeles',
+  zip: 'CA 90036',
+},
+{
+  date: '2016-05-08',
+  name: 'Tom',
+  state: 'California',
+  city: 'Los Angeles',
+  address: 'No. 189, Grove St, Los Angeles',
+  zip: 'CA 90036',
+},
+{
+  date: '2016-05-06',
+  name: 'Tom',
+  state: 'California',
+  city: 'Los Angeles',
+  address: 'No. 189, Grove St, Los Angeles',
+  zip: 'CA 90036',
+},
+{
+  date: '2016-05-07',
+  name: 'Tom',
+  state: 'California',
+  city: 'Los Angeles',
+  address: 'No. 189, Grove St, Los Angeles',
+  zip: 'CA 90036',
+},
+{
+  date: '2016-05-03',
+  name: 'Tom',
+  state: 'California',
+  city: 'Los Angeles',
+  address: 'No. 189, Grove St, Los Angeles',
+  zip: 'CA 90036',
+},
+{
+  date: '2016-05-02',
+  name: 'Tom',
+  state: 'California',
+  city: 'Los Angeles',
+  address: 'No. 189, Grove St, Los Angeles',
+  zip: 'CA 90036',
+},
+{
+  date: '2016-05-04',
+  name: 'Tom',
+  state: 'California',
+  city: 'Los Angeles',
+  address: 'No. 189, Grove St, Los Angeles',
+  zip: 'CA 90036',
+},
+{
+  date: '2016-05-01',
+  name: 'Tom',
+  state: 'California',
+  city: 'Los Angeles',
+  address: 'No. 189, Grove St, Los Angeles',
+  zip: 'CA 90036',
+},
+{
+  date: '2016-05-08',
+  name: 'Tom',
+  state: 'California',
+  city: 'Los Angeles',
+  address: 'No. 189, Grove St, Los Angeles',
+  zip: 'CA 90036',
+},
+{
+  date: '2016-05-06',
+  name: 'Tom',
+  state: 'California',
+  city: 'Los Angeles',
+  address: 'No. 189, Grove St, Los Angeles',
+  zip: 'CA 90036',
+},
+{
+  date: '2016-05-07',
+  name: 'Tom',
+  state: 'California',
+  city: 'Los Angeles',
+  address: 'No. 189, Grove St, Los Angeles',
+  zip: 'CA 90036',
+},
+]
+</script>
+
+
+
+```
+
+## 头部处理
+
+PageHeader.vue页面
+
+```vue
+<template>
+  <div class="header-cont">
+    <div class="left">
+      <h1>
+        <router-link to="/">{{ t('uniLiveMangeSystem') }}</router-link>
+      </h1>
+    </div>
+    <div class="right flex-center">
+      <div class="lang gap">
+        <span
+          class="item"
+          :class="{ active: locale === 'zh-cn' }"
+          @click="changeLanguage('zh-cn')"
+        >简体中文</span>
+        /
+        <span
+          class="item"
+          :class="{ active: locale === 'en' }"
+          @click="changeLanguage('en')"
+        >EN</span>
+      </div>
+      <template v-if="isLogin">
+        <div class="gap">
+          <router-link to="/personal/message">
+            <el-badge :is-dot="!!unReadCount">
+              <el-icon>
+                <message />
+              </el-icon>
+            </el-badge>
+          </router-link>
+        </div>
+        <el-dropdown trigger="click" @command="handleCommand">
+          <div class="flex-center cursor">
+            {{ username }}
+            <el-icon>
+              <caret-bottom />
+            </el-icon>
+          </div>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item command="toPersonal">{{ t('personalCenter') }}</el-dropdown-item>
+              <el-dropdown-item command="toLogout">{{ t('logout') }}</el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
+      </template>
+      <template v-else-if="$route.name !== 'Login'">
+        <router-link to="/login">{{ t('login') }}</router-link>
+      </template>
+    </div>
+  </div>
+</template>
+<script setup>
+import { useUserStore } from '@/stores/user.js'
+const store = useUserStore()
+const router = useRouter();
+const { locale, t } = useI18n();
+const isLogin = computed(() => store.token);
+const userInfo = computed(() => store.user);
+const username = computed(() => store.username)
+const unReadCount = computed(() => 100);
+
+const commands = ({
+  toPersonal: () => {
+    router.push('/personal')
+  },
+  toLogout: () => {
+    store.LoginOut();
+  }
+});
+
+// 语言切换
+function changeLanguage(lang) {
+  locale.value = lang
+  localStorage.setItem('ksd-kva-language', lang)
+}
+
+function handleCommand(command) {
+  commands[command] && commands[command]();
+}
+
+onMounted(()=>{
+  locale.value = localStorage.getItem("ksd-kva-language") || 'zh-cn'
+})
+
+</script>
+<style lang="scss">
+.header-cont {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 100%;
+  padding:0 20px;
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+  h1 {
+    margin: 0;
+    font-size: 20px;
+  }
+  .gap {
+    margin-right: 20px;
+  }
+  .right {
+    .lang {
+      font-size: 14px;
+      .item {
+        cursor: pointer;
+        &.active {
+          font-size: 18px;
+          font-weight: bold;
+        }
+      }
+    }
+  }
+  .el-dropdown {
+    color: inherit;
+  }
+}
+</style>
+```
+
+
+
+### 国际化
+
+```vue
+<template>
+  <div class="header-cont">
+    <div class="left">
+      <h1>
+        <router-link to="/">{{ t('KvaAdminHome') }}</router-link>
+      </h1>
+    </div>
+    
+    <div class="right flex-center">
+      <div class="lang gap">
+        <span
+          class="item"
+          :class="{ active: locale === 'zh-cn' }"
+          @click="changeLanguage('zh-cn')"
+        >简体中文</span>
+        /
+        <span
+          class="item"
+          :class="{ active: locale === 'en' }"
+          @click="changeLanguage('en')"
+        >EN</span>
+      </div>
+      <template v-if="isLogin">
+        <div class="gap">
+          <router-link to="/personal/message">
+            <el-badge :is-dot="!!unReadCount">
+              <el-icon>
+                <message />
+              </el-icon>
+            </el-badge>
+          </router-link>
+        </div>
+        <el-dropdown trigger="click" @command="handleCommand">
+          <div class="flex-center cursor">
+            {{ username }}
+            <el-icon>
+              <caret-bottom />
+            </el-icon>
+          </div>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item command="toPersonal">{{ t('personalCenter') }}</el-dropdown-item>
+              <el-dropdown-item command="toLogout">{{ t('logout') }}</el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
+      </template>
+      <template v-else-if="$route.name !== 'Login'">
+        <router-link to="/login">{{ t('login') }}</router-link>
+      </template>
+    </div>
+  </div>
+</template>
+<script setup>
+import { useUserStore } from '@/stores/user.js'
+const store = useUserStore()
+const router = useRouter();
+const { locale, t } = useI18n();
+const isLogin = computed(() => store.token);
+const username = computed(() => store.username)
+const unReadCount = computed(() => 100);
+
+const commands = ({
+  toPersonal: () => {
+    router.push('/personal')
+  },
+  toLogout: () => {
+    store.LoginOut();
+  }
+});
+
+
+function handleCommand(command) {
+  commands[command] && commands[command]();
+}
+
+
+
+// 语言切换
+function changeLanguage(lang) {
+  // 把选择的语言进行切换
+  locale.value = lang
+  // 切换以后记得把本地缓存进行修改，否则只会生效当前，刷新就还原。
+  localStorage.setItem('ksd-kva-language', lang)
+}
+
+// 用于读取本地缓存存储的语言是什么？
+function initReadLocale(){
+  locale.value = localStorage.getItem("ksd-kva-language") || 'zh-cn'
+}
+
+onMounted(()=>{
+  initReadLocale();
+})
+
+</script>
+<style lang="scss">
+.header-cont {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 100%;
+  padding:0 20px;
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+  h1 {
+    margin: 0;
+    font-size: 20px;
+  }
+  .gap {
+    margin-right: 20px;
+  }
+  .right {
+    .lang {
+      font-size: 14px;
+      .item {
+        cursor: pointer;
+        &.active {
+          font-size: 16px;
+          font-weight: bold;
+        }
+      }
+    }
+  }
+  .el-dropdown {
+    color: inherit;
+  }
+}
+</style>
+```
+
+但是这里国际化仅限于我们自己控制的，那么element-plus组件那些国际化如下处理呢？如下：
+
+在按照elememtplus的时候其实默认情况它语言包其实已经下载下来了。你只需要引入即可如下：找到i18n目录下的/index.js导入elementplus的国际化js文件如下：
+
+```js
+import { createI18n } from 'vue-i18n'
+import zhLocale from './lang/zh'
+import enLocale from './lang/en'
+import zhCn from 'element-plus/es/locale/lang/zh-cn' //--------------------------------------这里是新增
+import en from 'element-plus/es/locale/lang/en' //--------------------------------------这里是新增
+
+const i18n = createI18n({
+  legacy:false,
+  fallbackLocale:'zh',
+  locale:  localStorage.getItem("ksd-kva-language") || 'zh-cn', // 设置地区
+  messages: {
+    en: {
+      ...enLocale,
+      ...zhCn//--------------------------------------这里是新增
+    },
+    'zh-cn': {
+      ...zhLocale,
+      ...en //--------------------------------------这里是新增
+    }
+  }
+})
+
+export default i18n
+
+export const elementLocales = { //--------------------------------------这里是新增
+  'zh-cn': zhCn,
+  en
+}
+
+```
+
+然后找到App.vue下面的router-view包裹一一个标签组件如下：
+
+```vue	
+<template>
+    <el-config-provider :locale="elementLocales[locale]">
+      <router-view></router-view>
+    </el-config-provider>
+</template>
+
+<script setup>
+import { elementLocales } from '@/i18n'
+const { locale } = useI18n();
+locale.value = localStorage.getItem('locale') || 'zh-cn';
+</script>
+```
+
+## 全屏处理
+
+### 登出
+
+```js
+// 状态管理获取登录信息
+import { useUserStore } from '@/stores/user.js'
+const userStore = useUserStore()
+// 下拉事件处理
+const commands = ({
+  //个人中心跳转
+  toPersonal: () => {
+    router.push('/personal')
+  },
+  // 退出方法
+  toLogout: () => {
+    userStore.logout();
+  }
+});
+```
+
+1： 找到状态管理定义退出方法  stores/user.js 在actions中增加logout退出方法如下：
+
+```js
+import { defineStore } from 'pinia'
+import request from '@/request'
+import router from '@/router'
+import { menuTreeData } from '@/mock/data.js'
+
+//https://blog.csdn.net/weixin_62897746/article/details/129124364
+//https://prazdevs.github.io/pinia-plugin-persistedstate/guide/
+export const useUserStore = defineStore('user', {
+  // 定义状态
+  state: () => ({
+    routerLoaded:false,
+    user: {},
+    username: '',
+    userId: '',
+    token: '',
+    age:10,
+    male:1,
+    role:[],
+    permissions:[],
+    // 路由菜单，用来接收服务端传递过来的菜单数据
+    menuTree:[]
+  }),
+
+  // 就是一种计算属性的机制，定义的是函数，使用的是属性就相当于computed
+  getters:{
+
+    malestr(state){
+      if(state.male==1)return "男"
+      if(state.male==0)return "女"
+      if(state.male==1)return "保密"
+    },
+
+    isLogin(state){
+      return state.token ? true : false
+    },
+
+    roleName(state){
+      return state.roles && state.roles.map(r=>r.name).join(",")
+    },
+
+    permissionCode(state){
+      return state.permissions &&  state.permissions.map(r=>r.code).join(",")
+    }
+  },
+
+  // 定义动作
+  actions: {
+   setToken(newtoken){
+      this.token = newtoken
+   },
+
+   getToken(){
+    return this.token
+   },
+   
+   /* 登出*/
+   async logout (){
+      // 清除状态信息
+      this.token = ''
+      this.user = {}
+      this.username = ''
+      this.userId = ''
+      this.role = []
+      this.permissions = []
+      this.menuTree = []
+      // 清除自身的本地存储
+      localStorage.removeItem("ksd-kva-language")
+      localStorage.removeItem("kva-pinia-userstore")
+      localStorage.removeItem("isWhitelist")
+      // 然后跳转到登录
+      router.push({ name: 'Login', replace: true })
+  },
+  
+     
+   async toLogin(loginUser){
+
+      // 查询用户信息，角色，权限，角色对应菜单
+      const resp = await request.post("login/toLogin", loginUser,{noToken:true})
+      // 这个会回退，回退登录页
+      var { user ,token,roles,permissions } = resp.data
+      // 登录成功以后获取到菜单信息, 这里要调用一
+      this.menuTree = menuTreeData
+      // 把数据放入到状态管理中
+      this.user = user
+      this.userId = user.id
+      this.username = user.name
+      this.token = token
+      this.roles = roles
+      this.permissions = permissions
+      return Promise.resolve(resp)
+    }
+  },
+  persist: {
+    key: 'kva-pinia-userstore',
+    storage: localStorage,//sessionStorage
+  }
+})
+```
+
+退出在本地确实没问题，退出以后我们要明白一个逻辑，一个用户既然确定要退出了。那么就token就应该立即失效。不应该还有时效意义。那么怎么办。所以我们必须在服务端定义一个接口把当前的token拉入黑名单中，这才是最保险的做法如下：
+
+1: 定义服务端的路由退出接口方法
+
+```go
+package login
+
+import (
+	"github.com/gin-gonic/gin"
+	"xkginweb/api/v1/login"
+)
+
+// 登录路由
+type LogoutRouter struct{}
+
+func (router *LogoutRouter) InitLogoutRouter(Router *gin.RouterGroup) {
+	logoutApi := login.LogOutApi{}
+	// 用组定义--（推荐）
+	loginRouter := Router.Group("/login")
+	{
+		loginRouter.POST("/logout", logoutApi.ToLogout)
+	}
+}
+
+```
+
+ToLogout方法
+
+```go
+package login
+
+import (
+	"github.com/gin-gonic/gin"
+	"xkginweb/commons/jwtgo"
+	"xkginweb/commons/response"
+	"xkginweb/model/jwt"
+)
+
+// 登录业务
+type LogOutApi struct{}
+
+var jwtService = jwtgo.JwtService{}
+
+// 退出接口
+func (api *LogOutApi) ToLogout(c *gin.Context) {
+	// 获取头部的token信息
+	token := c.GetHeader("Authorization")
+	if token == "" {
+		response.Fail(401, "请求未携带token，无权限访问", c)
+		return
+	}
+	// 退出的token,加入到黑名单中
+	err := jwtService.JsonInBlacklist(jwt.JwtBlacklist{Jwt: token})
+	// 保存失败会进到到错误
+	if err != nil {
+		response.Fail(401, "token作废失败", c)
+		return
+	}
+	// 如果保存到黑名单中说明,已经可以告知前端可以进行执行清理动作了
+	response.Ok("token作废成功!", c)
+}
+
+```
+
+
+
+2: 进行注册路由
+
+```go
+package initilization
+
+import (
+	"fmt"
+	"github.com/gin-gonic/gin"
+	"net/http"
+	"time"
+	"xkginweb/commons/filter"
+	"xkginweb/commons/middle"
+	"xkginweb/global"
+	"xkginweb/router"
+	"xkginweb/router/code"
+	"xkginweb/router/login"
+)
+
+func InitGinRouter() *gin.Engine {
+	// 创建gin服务
+	ginServer := gin.Default()
+	// 提供服务组
+	courseRouter := router.RouterWebGroupApp.Course.CourseRouter
+	videoRouter := router.RouterWebGroupApp.Video.VideoRouter
+
+	// 解决接口的跨域问题
+	ginServer.Use(filter.Cors())
+
+	loginRouter := login.LoginRouter{}
+	logoutRouter := login.LogoutRouter{}
+	codeRouter := code.CodeRouter{}
+	// 接口隔离，比如登录，健康检查都不需要拦截和做任何的处理
+	// 业务模块接口，
+	privateGroup := ginServer.Group("/api")
+	// 不需要拦截就放注册中间间的前面,需要拦截的就放后面
+	loginRouter.InitLoginRouter(privateGroup)
+	codeRouter.InitCodeRouter(privateGroup)
+	// 只要接口全部使用jwt拦截
+	privateGroup.Use(middle.JWTAuth())
+	{
+		logoutRouter.InitLogoutRouter(privateGroup)
+		videoRouter.InitVideoRouter(privateGroup)
+		courseRouter.InitCourseRouter(privateGroup)
+	}
+
+	fmt.Println("router register success")
+	return ginServer
+}
+
+func RunServer() {
+	// 初始化路由
+	Router := InitGinRouter()
+	// 为用户头像和文件提供静态地址
+	Router.StaticFS("/static", http.Dir("/static"))
+	address := fmt.Sprintf(":%d", global.Yaml["server.port"])
+	// 启动HTTP服务,courseController
+	s := initServer(address, Router)
+	// 保证文本顺序输出
+	// In order to ensure that the text order output can be deleted
+	time.Sleep(10 * time.Microsecond)
+
+	s2 := s.ListenAndServe().Error()
+	fmt.Println("服务启动完毕 ", s2)
+}
+
+```
+
+
+
+3: 在前端定义退出的方法
+
+```js
+import request from '@/request/index.js'
+
+/**
+ * 退出登录
+ */
+export const handleLogout = ()=>{
+    request.post("/login/logout")
+}
+```
+
+4: 执行退出
+
+找到stores/user.js的actions中的logout方法增加服务端的退出请求如下：
+
+```js
+import { defineStore } from 'pinia'
+import request from '@/request'
+import router from '@/router'
+import { menuTreeData } from '@/mock/data.js'
+import { handleLogout } from '../api/logout.js'
+
+//https://blog.csdn.net/weixin_62897746/article/details/129124364
+//https://prazdevs.github.io/pinia-plugin-persistedstate/guide/
+export const useUserStore = defineStore('user', {
+  // 定义状态
+  state: () => ({
+    routerLoaded:false,
+    user: {},
+    username: '',
+    userId: '',
+    token: '',
+    role:[],
+    permissions:[],
+    // 路由菜单，用来接收服务端传递过来的菜单数据
+    menuTree:[]
+  }),
+
+  // 就是一种计算属性的机制，定义的是函数，使用的是属性就相当于computed
+  getters:{
+    isLogin(state){
+      return state.token ? true : false
+    },
+
+    roleName(state){
+      return state.roles && state.roles.map(r=>r.name).join(",")
+    },
+
+    permissionCode(state){
+      return state.permissions &&  state.permissions.map(r=>r.code).join(",")
+    }
+  },
+
+  // 定义动作
+  actions: {
+
+   /* 设置token */ 
+   setToken(newtoken){
+      this.token = newtoken
+   },
+
+   /* 获取token*/
+   getToken(){
+    return this.token
+   },
+   
+   /* 登出*/
+   async logout (){
+      // 执行服务端退出
+      await handleLogout()
+      // 清除状态信息
+      this.token = ''
+      this.user = {}
+      this.username = ''
+      this.userId = ''
+      this.role = []
+      this.permissions = []
+      this.menuTree = []
+      // 清除自身的本地存储
+      localStorage.removeItem("ksd-kva-language")
+      localStorage.removeItem("kva-pinia-userstore")
+      localStorage.removeItem("isWhitelist")
+      // 然后跳转到登录
+      router.push({ name: 'Login', replace: true })
+  },
+
+  /* 登录*/
+  async toLogin(loginUser){
+      // 查询用户信息，角色，权限，角色对应菜单
+      const resp = await request.post("login/toLogin", loginUser,{noToken:true})
+      // 这个会回退，回退登录页
+      var { user ,token,roles,permissions } = resp.data
+      // 登录成功以后获取到菜单信息, 这里要调用一
+      this.menuTree = menuTreeData
+      // 把数据放入到状态管理中
+      this.user = user
+      this.userId = user.id
+      this.username = user.name
+      this.token = token
+      this.roles = roles
+      this.permissions = permissions
+      return Promise.resolve(resp)
+    }
+  },
+    
+  persist: {
+    key: 'kva-pinia-userstore',
+    storage: localStorage,//sessionStorage
+  }
+})
+```
+
+然后查看：jwt_blacklists 中是否增加一条token记录。如果增加了说明就已经拉入到了黑名单中。就没有没有问题了。
+
+
+
+### 用户和角色和头像展示
+
+```vue
+<template>
+  <div class="header-cont">
+    <div class="left">
+      <h1>
+        <router-link to="/">{{ t('KvaAdminHome') }}</router-link>
+      </h1>
+    </div>
+    
+    <div class="right flex-center">
+      <!--全屏处理-->
+      <div class="fullbox">
+        <el-icon @click="handleFullChange(true)" v-if="!screenfullFlag" color="#fff"><FullScreen /></el-icon>
+        <el-icon @click="handleFullChange(false)" v-else color="#fff"><Aim /></el-icon>
+      </div>
+      <!--国际化-->
+      <div class="lang gap">
+        <span
+          class="item"
+          :class="{ active: locale === 'zh-cn' }"
+          @click="changeLanguage('zh-cn')"
+        >简体中文</span>
+        /
+        <span
+          class="item"
+          :class="{ active: locale === 'en' }"
+          @click="changeLanguage('en')"
+        >EN</span>
+      </div>
+      <template v-if="isLogin">
+        <div class="gap">
+          <router-link to="/personal/message">
+            <el-badge :is-dot="!!unReadCount">
+              <el-icon>
+                <message />
+              </el-icon>
+            </el-badge>
+          </router-link>
+        </div>
+        <el-dropdown trigger="click" @command="handleCommand">
+          <div class="flex-center cursor">
+            <el-avatar size="small" :src="userStore.user.avatar" />
+            <span class="uname"> {{ username }}</span> 
+            <el-icon>
+              <caret-bottom />
+            </el-icon>
+          </div>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item>当前角色：{{ currentRole.name}}</el-dropdown-item>
+              <el-dropdown-item v-for="(item,index) in otherRoles" :key="index">切换角色：{{ item.name }}</el-dropdown-item>
+              <el-dropdown-item divided command="toPersonal"><el-icon><User /></el-icon>{{ t('personalCenter') }}</el-dropdown-item>
+              <el-dropdown-item divided command="toLogout"><el-icon><Pointer /></el-icon>{{ t('logout') }}</el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
+      </template>
+      <template v-else-if="$route.name !== 'Login'">
+        <router-link to="/login">{{ t('login') }}</router-link>
+      </template>
+    </div>
+  </div>
+</template>
+<script setup>
+// 状态管理获取登录信息
+import KVA from '@/utils/kva.js'
+import { useUserStore } from '@/stores/user.js'
+const userStore = useUserStore()
+// 路由跳转
+const router = useRouter();
+// 国际化处理
+const { locale, t } = useI18n();
+// 获取登录的信息
+const isLogin = computed(() => userStore.token);
+const username = computed(() => userStore.username)
+// 消息未读取的数量
+const unReadCount = computed(() => 100);
+// 全屏处理
+import screenfull from 'screenfull'
+// 状态管理全屏按钮切换
+const screenfullFlag = ref(false)
+// 获取第一个以后角色方便进行切换
+const currentRole = computed(()=>userStore.roles && userStore.roles.length && userStore.roles[0])
+const otherRoles = computed(()=>userStore.roles && userStore.roles.length>1 && userStore.roles.filter((c,index)=>index > 0))
+
+// 全屏事件处理
+const handleFullChange = (flag) => {
+  screenfull.toggle()
+  screenfullFlag.value = flag
+}
+
+// 下拉事件处理
+const commands = ({
+  //个人中心跳转
+  toPersonal: () => {
+    router.push('/personal')
+  },
+  // 退出方法
+  toLogout: () => {
+    KVA.confirm("退出提示","您确定要离开吗?",{icon:"error"}).then(res=>{
+      userStore.logout();
+    })
+  }
+});
+
+function handleCommand(command) {
+  commands[command] && commands[command]();
+}
+
+// 语言切换
+function changeLanguage(lang) {
+  // 把选择的语言进行切换
+  locale.value = lang
+  // 切换以后记得把本地缓存进行修改，否则只会生效当前，刷新就还原。
+  localStorage.setItem('ksd-kva-language', lang)
+}
+
+// 用于读取本地缓存存储的语言是什么？
+function initReadLocale(){
+  locale.value = localStorage.getItem("ksd-kva-language") || 'zh-cn'
+}
+
+onMounted(()=>{
+  initReadLocale();
+})
+
+</script>
+<style lang="scss">
+.header-cont {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 100%;
+  padding:0 20px;
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+  h1 {
+    margin: 0;
+    font-size: 20px;
+  }
+  .gap {
+    margin-right: 20px;
+  }
+  .right {
+    .uname{margin-left: 10px;}
+    .fullbox{margin-right: 20px;cursor: pointer;}
+    .lang {
+      font-size: 14px;
+      .item {
+        cursor: pointer;
+        &.active {
+          font-size: 16px;
+          font-weight: bold;
+        }
+      }
+    }
+  }
+  .el-dropdown {
+    color: inherit;
+  }
+}
+</style>
+```
+
+
+
+## 如果登录了，立即跳转到后台首页
+
+如果已经登录，如果我们又去访问登录，其实这属于无用操作。应该要处理掉。如果登录状态又去访问登录页面就应该直接让他跳转首页。
+
+```js
+router.beforeEach(async (to) => {
+  //开启进度条
+  NProgress.start()
+  const userStore = useUserStore();
+
+  // 如果当前是登录状态，用户访问又是登录，属于无用操作，应该跳转到首页去
+  if(to.path === '/login'){
+    if(userStore.isLogin){
+        return {name:"Home"}
+    }
+    return true;
+  }
+
+  // 判断是否登录
+  if (!userStore.isLogin && to.name !== 'Login') {
+    // 这里的query就是为了记录用户最后一次访问的路径，这个路径是通过to的参数获取
+    // 后续在登录成功以后，就可以根据这个path的参数，然后调整到你最后一次访问的路径
+    return { name: 'Login', query: { "path": to.path } }
+  } 
+
+  // 动态加载路由
+  addDynamic()
+
+  // 如果刷新出现空白的问题，那么就使用下面这行代码
+  if (!to.name && hasRoute(to)) {
+    return { ...to };
+  }
+  // 查询是否注册
+  return true
+})
+```
+
+
+
+
+
+## 关于访问首页跳转到默认页面
+
+在访问首页，我们不能够直接把新页面写死，一般来有两种做法：
+
+- 1： 在前端进行配置 在src的目录下，新建一个整个系统的配置js文件如下。
+
+  - src/setting.js 内容下：
+
+    ```js
+    export default {
+      // 配置首页访问的时候，自动跳转到你指定defaultPage
+      defaultPage: {name:"DashBoard",replace:true},
+      // 指定菜单导航的个数
+      menuCount: 10,
+    }
+    
+    ```
+
+  - 然后在需要的地方进行导入使用即可。
+
+    比如：router/index.js 修改如下：
+
+    ```js
+    import { createRouter, createWebHashHistory } from 'vue-router'
+    import NProgress from 'nprogress'
+    // 获取状态管理的token
+    import { useUserStore } from '@/stores/user.js'
+    // 显示右上角螺旋加载提示
+    NProgress.configure({ showSpinner: true })
+    import Layout from "@/layout/Index.vue";
+    import PageMain from "@/layout/components/PageMain.vue";
+    import { menuTreeData } from '@/mock/data.js'
+    import settings from '@/settings.js'
+    
+    
+    const router = createRouter({
+      history: createWebHashHistory(import.meta.env.BASE_URL),
+      routes: [
+        {
+          path: "/",
+          name: "Home",
+          component: Layout
+        },
+        {
+          path: '/login',
+          name: 'Login',
+          meta: { title: "login" },
+          component: () => import('@/views/Login.vue')
+        }
+      ]
+    })
+    
+    const router404 = {
+      path: '/:pathMatch(.*)*',
+      name: 'NotFound',
+      component: () => import('@/views/error/NotFound.vue')
+    }
+    
+    router.beforeEach(async (to) => {
+      //开启进度条
+      NProgress.start()
+      const userStore = useUserStore();
+    
+      // 如果当前是登录状态，用户访问又是登录，属于无用操作，应该跳转到首页去
+      if(to.path === '/login'){
+        if(userStore.isLogin){
+            return {name:"Home"}
+        }
+        return true;
+      }
+    
+      // 判断是否登录
+      if (!userStore.isLogin && to.name !== 'Login') {
+        // 这里的query就是为了记录用户最后一次访问的路径，这个路径是通过to的参数获取
+        // 后续在登录成功以后，就可以根据这个path的参数，然后调整到你最后一次访问的路径
+        return { name: 'Login', query: { "path": to.path } }
+      } 
+    
+      // 动态加载路由---这里需要耗时---db--ajax-
+      await addDynamic()
+    
+      // 如果刷新出现空白的问题，那么就使用下面这行代码
+      if (!to.name && hasRoute(to)) {
+        return { ...to };
+      }
+    
+      // 如果访问的是首页，就跳转到/dashboard页面-------------------------------------新增代码
+      if(to.path === "/"){
+        // 读取默认菜单的默认页面,需要从数据库的菜单表中去读取
+        return settings.defaultPage;
+      }
+    
+      // 查询是否注册
+      return true
+    })
+    
+    // 动态路由
+    function addDynamic(){
+      const userStore = useUserStore();
+      // 404可以这样处理
+      router.addRoute(router404)
+      // 必须服务器返回的菜单和views去碰撞形成一个完整的route信息，然后注册到home下
+      addDynamicRoutes(menuTreeData)
+      // 同时同步到状态管理中
+      userStore.menuTree = menuTreeData;
+    }
+    
+    // 这里是获取工程目录下的views下的所以的.vue结尾的SPA页面
+    const modules = import.meta.glob('../views/**/*.vue');
+    function addDynamicRoutes(menuTreeData,parent){
+      // 开始循环遍历菜单信息
+      menuTreeData.forEach((item,index) => {
+        // 准备路由数据格式
+        const route = {
+          path: item.path,
+          name: item.name,
+          // 增加访问路径的元数据信息
+          meta: {name: item.name,icon:item.icon},
+          children:[]
+        }
+        // 如果存在parent,就说明有children
+        if(parent){
+          if(item.parentId!==0){
+            // 这里就开始给子菜单匹配views下面的页面spa
+            const compParr = item.path.replace("/", "").split("/");
+            const l = compParr.length - 1; 
+            const compPath = compParr
+              .map((v, i) => {
+                return i === l ? v.replace(/\w/, (L) => L.toUpperCase()) + ".vue" : v;
+              })
+              .join("/");
+            route.path = compParr[l];
+            // 设置动态组件
+            route.component = modules[`../views/${compPath}`];
+            parent.children.push(route);
+          }
+        }else{
+          // 判断你是否有children
+          if (item.children && item.children.length > 0) {
+            // 这里的含义是：把匹配到菜单数据第一项作为首页的入口页面
+            // /order-----redirect-----/order/list
+            route.redirect = item.children[0].path;
+            route.component = PageMain;
+            // 递归
+            addDynamicRoutes(item.children, route)
+          }else{
+            //route.component = modules[`../views/${item.name}.vue`] 
+            route.component = modules[`../views/${item.name.toLowerCase()}/Index.vue`] 
+          }
+          router.addRoute("Home", route);
+        }
+      })
+    }
+    
+    // 判断当前路由是否存在动态添加的路由数据中
+    function hasRoute(to) {
+      const item = router.getRoutes().find((item) => item.path === to.path);
+      return !!item;
+    }
+    
+    router.afterEach(() => {
+      //完成进度条
+      NProgress.done()
+    })
+    
+    export default router
+    
+    ```
+
+    
+
+2：在数据库进行配置,其实就给菜单增加一个默认菜单。并且是唯一的
+
+
+
+## 关于菜单伸缩处理自适应问题
+
+控制右侧菜单的折叠和隐藏，然后小屏幕也可以进行一些适配。主要实现的方式是如下：
+
+1： 监听浏览器屏幕的宽度 ，并且 如果浏览器屏幕的宽度<992px 就会进行折叠
+
+```js
+// 获取屏幕宽度
+const screenWidth = ref(window.innerWidth)
+onMounted(() => {
+  // 然后监听浏览器的窗口resize事件，只要浏览器发生大小的变化就会触发。
+  window.addEventListener("resize", () => {
+    screenWidth.value = window.innerWidth
+  })
+})
+
+//watch监听屏幕宽度的变化，进行侧边栏的收缩和展开
+watch(screenWidth, (newValue, oldValue) => {
+    // 如果浏览器的宽度小于992px时候就会菜单的处理折叠状态
+    isCollapse.value = newValue < 992
+})
+```
+
+2： 如果要控制隐藏那么你可以进行隐藏状态的控制
+
+可配置性：src/settings.js
+
+```js
+export default {
+  // 配置首页访问的时候，自动跳转到你指定defaultPage
+  defaultPage: {path:"/dashboard",replace:true},
+  // 指定菜单导航的个数
+  menuCount: 10,
+  // 菜单折叠屏幕宽度的大小
+  collapseWidth: 992,
+  // 菜单隐藏屏幕宽度的大小
+  hiddenWidth: 640,
+}
+
+```
+
+然后修改layout/PageSilder.vue如下：
+
+```js
+<template>
+  <div class="page-sidebar" v-show="isHidden">
+    <div class="collape-bar">
+      <el-icon class="cursor" @click="isCollapse = !isCollapse">
+        <expand v-if="isCollapse" />
+        <fold v-else />
+      </el-icon>
+    </div>
+    <el-menu 
+      active-text-color="#333" 
+      background-color="#ffffff" 
+      text-color="#333" 
+      router
+      :default-active="defaultActive" 
+      class="sidemenu" 
+      :collapse="isCollapse">
+      <template v-for="(item, i) in menuTree" :key="i">
+        <template v-if="item.children && item.children.length">
+          <el-sub-menu :index="item.path">
+            <template #title>
+              <el-icon v-if="item.icon">
+                <component :is="item.icon"></component>
+              </el-icon>
+              <span>{{ t(`menu.${item.name}`) }}</span>
+            </template>
+              <template v-for="(child, ci) in item.children" :key="ci">
+                <el-menu-item :index="child.path">
+                  <el-icon>
+                    <component :is="child.icon"></component>
+                  </el-icon>
+                  {{ t(`menu.${child.name}`) }}
+                </el-menu-item>
+            </template>
+          </el-sub-menu>
+        </template>
+        <template v-else>
+          <el-menu-item :index="item.path">
+            <el-icon v-if="item.icon">
+              <component :is="item.icon"></component>
+            </el-icon>
+            <span>{{ t(`menu.${item.name}`) }}</span>
+          </el-menu-item>
+        </template>
+      </template>
+    </el-menu>
+  </div>
+</template>
+  
+<script  setup>
+import { useUserStore } from '@/stores/user.js'
+import settings from '@/settings.js'
+// 这个是用来获取当前访问的路由信息,
+const route = useRoute();
+const { t } = useI18n();
+// 默认情况下不折叠
+const isCollapse = ref(false)
+const isHidden = ref(true)
+// 根据当前路由来激活菜单
+const defaultActive = computed(()=>(route.path))
+// 获取状态管理的菜单信息
+const userStore = useUserStore();
+// 如何获取菜单数据呢？
+const menuTree = computed(()=>userStore.menuTree)
+
+// 获取屏幕宽度
+const screenWidth = ref(window.innerWidth)
+onMounted(() => {
+  // 然后监听浏览器的窗口resize事件，只要浏览器发生大小的变化就会触发。
+  window.addEventListener("resize", () => {
+    screenWidth.value = window.innerWidth
+  })
+})
+
+//watch监听屏幕宽度的变化，进行侧边栏的收缩和展开
+watch(screenWidth, (newValue, oldValue) => {
+    // 如果浏览器的宽度小于992px时候就会菜单的处理折叠状态
+    isCollapse.value = newValue < settings.collapseWidth
+    isHidden.value = !(newValue < settings.hiddenWidth)
+})
+
+</script>
+<style lang="scss">
+$slider-width: 180px;
+.page-sidebar {
+  height: calc(100vh - 90px);
+  overflow: hidden auto;
+  .sidemenu.el-menu,
+  .sidemenu .el-sub-menu>.el-menu {
+    --el-menu-text-color: #ccc;
+    --el-menu-hover-bg-color: #060251;
+    --el-menu-border-color: transparent;
+    --el-menu-bg-color: #001529;
+
+    .el-menu-item {
+      &.is-active {
+        background-color: #e6f7ff;
+        color: #1890ff
+      }
+    }
+  }
+
+   /* elmenu菜单的折叠效果是通过属性：
+      :collapse="isCollapse"  原理就在控制在不停切换elmenu="el-menu--collapse"样式信息
+      1：ture 就折叠，就会使用图标宽度+padding作为菜单宽度
+      2: false 就不折叠，那么就使用默认宽度：200px
+
+      下面这行css是什么意思：
+      如果菜单上存在el-menu--collapse样式就说明是折叠状态，就使用图标宽度+padding作为菜单宽度
+      否则：就用我的width:200作为菜单宽度
+   */
+  .sidemenu.el-menu:not(.el-menu--collapse) {
+    width: $slider-width;
+  }
+
+  .collape-bar {
+    color: #333;
+    font-size: 16px;
+    line-height: 36px;
+    position: fixed;
+    z-index: 2;
+    width: 100%;
+    left:20px;
+    bottom: 0;
+    .c-icon {
+      cursor: pointer;
+    }
+  }
+}
+</style>
+```
+
+
+
+## 控制面板
+
+views/dashboard/Index.vue
+
+```vue
+<template>
+    <div class="page admin-box" element-loading-text="正在加载中">
+        <div class="gva-card-box">
+            <div class="gva-card gva-top-card">
+                <div class="gva-top-card-left">
+                    <div class="gva-top-card-left-title">早安，管理员，请开始一天的工作吧</div>
+                    <div class="gva-top-card-left-dot">今日晴，0℃ - 10℃，天气寒冷，注意添加衣物。</div>
+                    <div class="gva-top-card-left-rows">
+                        <div class="el-row">
+                            <div class="el-col el-col-8 el-col-xs-24 el-col-sm-8">
+                                <div class="flex-center"><i 
+                                        class="el-icon dashboard-icon"><svg 
+                                            xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+                                            <path fill="currentColor"
+                                                d="M384 96a32 32 0 0 1 64 0v786.752a32 32 0 0 1-54.592 22.656L95.936 608a32 32 0 0 1 0-45.312h.128a32 32 0 0 1 45.184 0L384 805.632V96zm192 45.248a32 32 0 0 1 54.592-22.592L928.064 416a32 32 0 0 1 0 45.312h-.128a32 32 0 0 1-45.184 0L640 218.496V928a32 32 0 1 1-64 0V141.248z">
+                                            </path>
+                                        </svg></i> 今日流量 (1231231) </div>
+                            </div>
+                            <div class="el-col el-col-8 el-col-xs-24 el-col-sm-8">
+                                <div class="flex-center"><i 
+                                        class="el-icon dashboard-icon"><svg 
+                                            xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+                                            <path fill="currentColor"
+                                                d="M628.736 528.896A416 416 0 0 1 928 928H96a415.872 415.872 0 0 1 299.264-399.104L512 704l116.736-175.104zM720 304a208 208 0 1 1-416 0 208 208 0 0 1 416 0z">
+                                            </path>
+                                        </svg></i> 总用户数 (24001) </div>
+                            </div>
+                            <div class="el-col el-col-8 el-col-xs-24 el-col-sm-8">
+                                <div class="flex-center"><i 
+                                        class="el-icon dashboard-icon"><svg 
+                                            xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+                                            <path fill="currentColor"
+                                                d="M736 504a56 56 0 1 1 0-112 56 56 0 0 1 0 112zm-224 0a56 56 0 1 1 0-112 56 56 0 0 1 0 112zm-224 0a56 56 0 1 1 0-112 56 56 0 0 1 0 112zM128 128v640h192v160l224-160h352V128H128z">
+                                            </path>
+                                        </svg></i> 好评率 (99%) </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div >
+                        <div class="gva-top-card-left-item"> 使用教学： <a 
+                                target="view_window" href="https://www.bilibili.com/video/BV1Rg411u7xH/"
+                                style="color: rgb(64, 158, 255);">https://www.bilibili.com/video/BV1Rg411u7xH</a></div>
+                        <div class="gva-top-card-left-item"> 插件仓库： <a 
+                                target="view_window" href="https://plugin.gin-vue-admin.com/#/layout/home"
+                                style="color: rgb(64, 158, 255);">https://plugin.gin-vue-admin.com</a></div>
+                    </div>
+                </div><img src="https://demo.gin-vue-admin.com/assets/dashboard-70e55b71.png"
+                    class="gva-top-card-right" alt="">
+            </div>
+        </div>
+        <div class="gva-card-box">
+            <div class="el-card is-always-shadow gva-card quick-entrance">
+                <div class="el-card__header">
+                    <div class="card-header"><span >快捷入口</span></div>
+                </div>
+                <div class="el-card__body" style="">
+                    <div class="el-row" style="margin-left: -10px; margin-right: -10px;">
+                        <div class="el-col el-col-4 el-col-xs-8 is-guttered quick-entrance-items"
+                            style="padding-right: 10px; padding-left: 10px;">
+                            <div class="quick-entrance-item">
+                                <div class="quick-entrance-item-icon"
+                                    style="background-color: rgba(255, 156, 110, 0.3);"><i 
+                                        class="el-icon"><svg xmlns="http://www.w3.org/2000/svg"
+                                            viewBox="0 0 1024 1024" style="color: rgb(255, 156, 110);">
+                                            <path fill="currentColor"
+                                                d="M544 768v128h192a32 32 0 1 1 0 64H288a32 32 0 1 1 0-64h192V768H192A128 128 0 0 1 64 640V256a128 128 0 0 1 128-128h640a128 128 0 0 1 128 128v384a128 128 0 0 1-128 128H544zM192 192a64 64 0 0 0-64 64v384a64 64 0 0 0 64 64h640a64 64 0 0 0 64-64V256a64 64 0 0 0-64-64H192z">
+                                            </path>
+                                        </svg></i></div>
+                                <p >用户管理</p>
+                            </div>
+                        </div>
+                        <div class="el-col el-col-4 el-col-xs-8 is-guttered quick-entrance-items"
+                            style="padding-right: 10px; padding-left: 10px;">
+                            <div class="quick-entrance-item">
+                                <div class="quick-entrance-item-icon"
+                                    style="background-color: rgba(105, 192, 255, 0.3);"><i 
+                                        class="el-icon"><svg xmlns="http://www.w3.org/2000/svg"
+                                            viewBox="0 0 1024 1024" style="color: rgb(105, 192, 255);">
+                                            <path fill="currentColor"
+                                                d="M600.704 64a32 32 0 0 1 30.464 22.208l35.2 109.376c14.784 7.232 28.928 15.36 42.432 24.512l112.384-24.192a32 32 0 0 1 34.432 15.36L944.32 364.8a32 32 0 0 1-4.032 37.504l-77.12 85.12a357.12 357.12 0 0 1 0 49.024l77.12 85.248a32 32 0 0 1 4.032 37.504l-88.704 153.6a32 32 0 0 1-34.432 15.296L708.8 803.904c-13.44 9.088-27.648 17.28-42.368 24.512l-35.264 109.376A32 32 0 0 1 600.704 960H423.296a32 32 0 0 1-30.464-22.208L357.696 828.48a351.616 351.616 0 0 1-42.56-24.64l-112.32 24.256a32 32 0 0 1-34.432-15.36L79.68 659.2a32 32 0 0 1 4.032-37.504l77.12-85.248a357.12 357.12 0 0 1 0-48.896l-77.12-85.248A32 32 0 0 1 79.68 364.8l88.704-153.6a32 32 0 0 1 34.432-15.296l112.32 24.256c13.568-9.152 27.776-17.408 42.56-24.64l35.2-109.312A32 32 0 0 1 423.232 64H600.64zm-23.424 64H446.72l-36.352 113.088-24.512 11.968a294.113 294.113 0 0 0-34.816 20.096l-22.656 15.36-116.224-25.088-65.28 113.152 79.68 88.192-1.92 27.136a293.12 293.12 0 0 0 0 40.192l1.92 27.136-79.808 88.192 65.344 113.152 116.224-25.024 22.656 15.296a294.113 294.113 0 0 0 34.816 20.096l24.512 11.968L446.72 896h130.688l36.48-113.152 24.448-11.904a288.282 288.282 0 0 0 34.752-20.096l22.592-15.296 116.288 25.024 65.28-113.152-79.744-88.192 1.92-27.136a293.12 293.12 0 0 0 0-40.256l-1.92-27.136 79.808-88.128-65.344-113.152-116.288 24.96-22.592-15.232a287.616 287.616 0 0 0-34.752-20.096l-24.448-11.904L577.344 128zM512 320a192 192 0 1 1 0 384 192 192 0 0 1 0-384zm0 64a128 128 0 1 0 0 256 128 128 0 0 0 0-256z">
+                                            </path>
+                                        </svg></i></div>
+                                <p >角色管理</p>
+                            </div>
+                        </div>
+                        <div class="el-col el-col-4 el-col-xs-8 is-guttered quick-entrance-items"
+                            style="padding-right: 10px; padding-left: 10px;">
+                            <div class="quick-entrance-item">
+                                <div class="quick-entrance-item-icon"
+                                    style="background-color: rgba(179, 127, 235, 0.3);"><i 
+                                        class="el-icon"><svg xmlns="http://www.w3.org/2000/svg"
+                                            viewBox="0 0 1024 1024" style="color: rgb(179, 127, 235);">
+                                            <path fill="currentColor"
+                                                d="M160 448a32 32 0 0 1-32-32V160.064a32 32 0 0 1 32-32h256a32 32 0 0 1 32 32V416a32 32 0 0 1-32 32H160zm448 0a32 32 0 0 1-32-32V160.064a32 32 0 0 1 32-32h255.936a32 32 0 0 1 32 32V416a32 32 0 0 1-32 32H608zM160 896a32 32 0 0 1-32-32V608a32 32 0 0 1 32-32h256a32 32 0 0 1 32 32v256a32 32 0 0 1-32 32H160zm448 0a32 32 0 0 1-32-32V608a32 32 0 0 1 32-32h255.936a32 32 0 0 1 32 32v256a32 32 0 0 1-32 32H608z">
+                                            </path>
+                                        </svg></i></div>
+                                <p >菜单管理</p>
+                            </div>
+                        </div>
+                        <div class="el-col el-col-4 el-col-xs-8 is-guttered quick-entrance-items"
+                            style="padding-right: 10px; padding-left: 10px;">
+                            <div class="quick-entrance-item">
+                                <div class="quick-entrance-item-icon"
+                                    style="background-color: rgba(255, 214, 102, 0.3);"><i 
+                                        class="el-icon"><svg xmlns="http://www.w3.org/2000/svg"
+                                            viewBox="0 0 1024 1024" style="color: rgb(255, 214, 102);">
+                                            <path fill="currentColor"
+                                                d="M320 256a64 64 0 0 0-64 64v384a64 64 0 0 0 64 64h384a64 64 0 0 0 64-64V320a64 64 0 0 0-64-64H320zm0-64h384a128 128 0 0 1 128 128v384a128 128 0 0 1-128 128H320a128 128 0 0 1-128-128V320a128 128 0 0 1 128-128z">
+                                            </path>
+                                            <path fill="currentColor"
+                                                d="M512 64a32 32 0 0 1 32 32v128h-64V96a32 32 0 0 1 32-32zm160 0a32 32 0 0 1 32 32v128h-64V96a32 32 0 0 1 32-32zm-320 0a32 32 0 0 1 32 32v128h-64V96a32 32 0 0 1 32-32zm160 896a32 32 0 0 1-32-32V800h64v128a32 32 0 0 1-32 32zm160 0a32 32 0 0 1-32-32V800h64v128a32 32 0 0 1-32 32zm-320 0a32 32 0 0 1-32-32V800h64v128a32 32 0 0 1-32 32zM64 512a32 32 0 0 1 32-32h128v64H96a32 32 0 0 1-32-32zm0-160a32 32 0 0 1 32-32h128v64H96a32 32 0 0 1-32-32zm0 320a32 32 0 0 1 32-32h128v64H96a32 32 0 0 1-32-32zm896-160a32 32 0 0 1-32 32H800v-64h128a32 32 0 0 1 32 32zm0-160a32 32 0 0 1-32 32H800v-64h128a32 32 0 0 1 32 32zm0 320a32 32 0 0 1-32 32H800v-64h128a32 32 0 0 1 32 32z">
+                                            </path>
+                                        </svg></i></div>
+                                <p >代码生成器</p>
+                            </div>
+                        </div>
+                        <div class="el-col el-col-4 el-col-xs-8 is-guttered quick-entrance-items"
+                            style="padding-right: 10px; padding-left: 10px;">
+                            <div class="quick-entrance-item">
+                                <div class="quick-entrance-item-icon"
+                                    style="background-color: rgba(255, 133, 192, 0.3);"><i 
+                                        class="el-icon"><svg xmlns="http://www.w3.org/2000/svg"
+                                            viewBox="0 0 1024 1024" style="color: rgb(255, 133, 192);">
+                                            <path fill="currentColor"
+                                                d="M805.504 320 640 154.496V320h165.504zM832 384H576V128H192v768h640V384zM160 64h480l256 256v608a32 32 0 0 1-32 32H160a32 32 0 0 1-32-32V96a32 32 0 0 1 32-32zm318.4 582.144 180.992-180.992L704.64 510.4 478.4 736.64 320 578.304l45.248-45.312L478.4 646.144z">
+                                            </path>
+                                        </svg></i></div>
+                                <p >表单生成器</p>
+                            </div>
+                        </div>
+                        <div class="el-col el-col-4 el-col-xs-8 is-guttered quick-entrance-items"
+                            style="padding-right: 10px; padding-left: 10px;">
+                            <div class="quick-entrance-item">
+                                <div class="quick-entrance-item-icon"
+                                    style="background-color: rgba(92, 219, 211, 0.3);"><i 
+                                        class="el-icon"><svg xmlns="http://www.w3.org/2000/svg"
+                                            viewBox="0 0 1024 1024" style="color: rgb(92, 219, 211);">
+                                            <path fill="currentColor"
+                                                d="M512 512a192 192 0 1 0 0-384 192 192 0 0 0 0 384zm0 64a256 256 0 1 1 0-512 256 256 0 0 1 0 512zm320 320v-96a96 96 0 0 0-96-96H288a96 96 0 0 0-96 96v96a32 32 0 1 1-64 0v-96a160 160 0 0 1 160-160h448a160 160 0 0 1 160 160v96a32 32 0 1 1-64 0z">
+                                            </path>
+                                        </svg></i></div>
+                                <p >关于我们</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="gva-card-box">
+            <div class="gva-card">
+                <div class="card-header"><span >数据统计</span></div>
+                <div class="echart-box">
+                    <div class="el-row" style="margin-left: -10px; margin-right: -10px;">
+                        <div class="el-col el-col-24 el-col-xs-24 el-col-sm-18 is-guttered"
+                            style="padding-right: 10px; padding-left: 10px;">
+                            <div class="dashboard-line-box">
+                                <div class="dashboard-line-title"> 访问趋势 </div>
+                                <div class="dashboard-line" _echarts_instance_="ec_1691233547121"
+                                    style="user-select: none; -webkit-tap-highlight-color: rgba(0, 0, 0, 0);">
+                                    <div
+                                        style="position: relative; width: 1177px; height: 360px; padding: 0px; margin: 0px; border-width: 0px; cursor: default;">
+                                        <canvas data-zr-dom-id="zr_0" width="1177" height="360"
+                                            style="position: absolute; left: 0px; top: 0px; width: 1177px; height: 360px; user-select: none; -webkit-tap-highlight-color: rgba(0, 0, 0, 0); padding: 0px; margin: 0px; border-width: 0px;"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="el-col el-col-24 el-col-xs-24 el-col-sm-6 is-guttered"
+                            style="padding-right: 10px; padding-left: 10px;">
+                            <div class="commit-table">
+                                <div class="commit-table-title"> 更新日志 </div>
+                                <div class="log">
+                                    <div class="log-item">
+                                        <div class="flex-1 flex key-box"><span data-v-144ac47f=""
+                                                class="key top">1</span></div>
+                                        <div class="flex-5 flex message">feat: update ci add
+                                            CGO_ENABLED=0 (#1497)</div>
+                                        <div class="flex-3 flex form">2023-08-04</div>
+                                    </div>
+                                    <div class="log-item">
+                                        <div class="flex-1 flex key-box"><span data-v-144ac47f=""
+                                                class="key top">2</span></div>
+                                        <div class="flex-5 flex message">集成tailwindcss 替换新的登陆页面和版权信息组件
+                                            (#1499)
+
+                                            * 集成tailwindcss
+
+                                            * fix: 修改登录，init 页面
+
+                                            * Update package.json
+
+                                            * 升级可升级的第三方库到新版本
+
+                                            * 细节调整
+
+                                            ---------
+
+                                            Co-authored-by: bypanghu &lt;bypanghu@163.com&gt;
+                                            Co-authored-by: task &lt;121913992@qq.com&gt;</div>
+                                        <div class="flex-3 flex form">2023-08-04</div>
+                                    </div>
+                                    <div class="log-item">
+                                        <div class="flex-1 flex key-box"><span data-v-144ac47f=""
+                                                class="key top">3</span></div>
+                                        <div class="flex-5 flex message">fix: macos和linux下代码定位命令不对 #1495
+                                            (#1496)</div>
+                                        <div class="flex-3 flex form">2023-08-02</div>
+                                    </div>
+                                    <div class="log-item">
+                                        <div class="flex-1 flex key-box"><span data-v-144ac47f=""
+                                                class="key">4</span></div>
+                                        <div class="flex-5 flex message">Rename outer.go to other.go
+                                            (#1490)</div>
+                                        <div class="flex-3 flex form">2023-08-02</div>
+                                    </div>
+                                    <div class="log-item">
+                                        <div class="flex-1 flex key-box"><span data-v-144ac47f=""
+                                                class="key">5</span></div>
+                                        <div class="flex-5 flex message">feat: use description to name
+                                            apiGroup (#1494)</div>
+                                        <div class="flex-3 flex form">2023-08-01</div>
+                                    </div>
+                                    <div class="log-item">
+                                        <div class="flex-1 flex key-box"><span data-v-144ac47f=""
+                                                class="key">6</span></div>
+                                        <div class="flex-5 flex message">Merge pull request #1483 from
+                                            ChengDaqi2023/oscs_fix_cis9at8au51vj78hfkt0
+
+                                            fix(sec): upgrade golang.org/x/image to 0.5.0</div>
+                                        <div class="flex-3 flex form">2023-07-21</div>
+                                    </div>
+                                    <div class="log-item">
+                                        <div class="flex-1 flex key-box"><span data-v-144ac47f=""
+                                                class="key">7</span></div>
+                                        <div class="flex-5 flex message">update golang.org/x/image
+                                            v0.0.0-20210220032944-ac19c3e999fb to 0.5.0</div>
+                                        <div class="flex-3 flex form">2023-07-20</div>
+                                    </div>
+                                    <div class="log-item">
+                                        <div class="flex-1 flex key-box"><span data-v-144ac47f=""
+                                                class="key">8</span></div>
+                                        <div class="flex-5 flex message">修复marked问题</div>
+                                        <div class="flex-3 flex form">2023-07-19</div>
+                                    </div>
+                                    <div class="log-item">
+                                        <div class="flex-1 flex key-box"><span data-v-144ac47f=""
+                                                class="key">9</span></div>
+                                        <div class="flex-5 flex message">增加多图片自动生成功能</div>
+                                        <div class="flex-3 flex form">2023-07-18</div>
+                                    </div>
+                                    <div class="log-item">
+                                        <div class="flex-1 flex key-box"><span data-v-144ac47f=""
+                                                class="key">10</span></div>
+                                        <div class="flex-5 flex message">修复element2.3.8以上i18n的问题</div>
+                                        <div class="flex-3 flex form">2023-07-17</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</template>
+
+<script setup>
+import { handleLoadMenus } from '@/api/sysmenu.js'
+
+
+const handleLoadMenusData = async () => {
+    const menuDatas = await handleLoadMenus()
+    console.log('menuDatas', menuDatas)
+}
+
+onMounted(() => {
+    handleLoadMenusData()
+})
+</script> 
+
+<style lang="scss" scoped>
+
+.page {
+    background: #f0f2f5;
+}
+
+.page .gva-card-box {
+    padding: 12px 16px
+}
+
+.page .gva-card-box+.gva-card-box {
+    padding-top: 0
+}
+
+.page .gva-card {
+    box-sizing: border-box;
+    background-color: #fff;
+    border-radius: 2px;
+    height: auto;
+    padding: 26px 30px;
+    overflow: hidden;
+    box-shadow: 0 0 7px 1px rgba(0, 0, 0, .03)
+}
+
+.page .gva-top-card {
+    height: 260px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: #777
+}
+
+.page .gva-top-card-left {
+    height: 100%;
+    display: flex;
+    flex-direction: column
+}
+
+.page .gva-top-card-left-title {
+    font-size: 22px;
+    color: #343844
+}
+
+.page .gva-top-card-left-dot {
+    font-size: 16px;
+    color: #6b7687;
+    margin-top: 24px
+}
+
+.page .gva-top-card-left-rows {
+    margin-top: 18px;
+    color: #6b7687;
+    width: 600px;
+    align-items: center
+}
+
+.page .gva-top-card-left-item {
+    margin-top: 14px
+}
+
+.page .gva-top-card-left-item+.gva-top-card-left-item {
+    margin-top: 24px
+}
+
+.page .gva-top-card-right {
+    height: 600px;
+    width: 600px;
+    margin-top: 28px
+}
+
+.page .el-card__header {
+    padding: 0;
+    border-bottom: none
+}
+
+.page .card-header {
+    padding-bottom: 20px;
+    border-bottom: 1px solid #e8e8e8
+}
+
+.page .quick-entrance-title {
+    height: 30px;
+    font-size: 22px;
+    color: #333;
+    width: 100%;
+    border-bottom: 1px solid #eee
+}
+
+.page .quick-entrance-items {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    color: #333
+}
+
+.page .quick-entrance-items .quick-entrance-item {
+    padding: 16px 28px;
+    margin-top: -16px;
+    margin-bottom: -16px;
+    border-radius: 4px;
+    transition: all .2s;
+    cursor: pointer;
+    height: auto;
+    text-align: center
+}
+
+.page .quick-entrance-items .quick-entrance-item:hover {
+    box-shadow: 0 0 7px rgba(217, 217, 217, .55)
+}
+
+.page .quick-entrance-items .quick-entrance-item-icon {
+    width: 50px;
+    height: 50px !important;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto
+}
+
+.page .quick-entrance-items .quick-entrance-item-icon i {
+    font-size: 24px
+}
+
+.page .quick-entrance-items .quick-entrance-item p {
+    margin-top: 10px
+}
+
+.page .echart-box {
+    padding: 14px
+}
+
+.dashboard-icon {
+    font-size: 20px;
+    color: #55a0f8;
+    width: 30px;
+    height: 30px;
+    margin-right: 10px;
+    display: flex;
+    align-items: center
+}
+
+.flex-center {
+    display: flex;
+    align-items: center
+}
+
+@media (max-width: 750px) {
+    .gva-card {
+        padding: 20px 10px !important
+    }
+
+    .gva-card .gva-top-card {
+        height: auto
+    }
+
+    .gva-card .gva-top-card-left-title {
+        font-size: 20px !important
+    }
+
+    .gva-card .gva-top-card-left-rows {
+        margin-top: 15px;
+        align-items: center
+    }
+
+    .gva-card .gva-top-card-right {
+        display: none
+    }
+
+    .gva-card .gva-middle-card-item {
+        line-height: 20px
+    }
+
+    .gva-card .dashboard-icon {
+        font-size: 18px
+    }
+}
+
+.commit-table {
+    background-color: #fff;
+    height: 400px
+}
+
+.commit-table-title {
+    font-weight: 600;
+    margin-bottom: 12px
+}
+
+.commit-table .log-item {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 14px
+}
+
+.commit-table .log-item .key-box {
+    justify-content: center
+}
+
+.commit-table .log-item .key {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #F0F2F5;
+    text-align: center;
+    color: rgba(0, 0, 0, .65)
+}
+
+.commit-table .log-item .key.top {
+    background: #314659;
+    color: #fff
+}
+
+.commit-table .log-item .message {
+    color: rgba(0, 0, 0, .65)
+}
+
+.commit-table .log-item .form {
+    color: rgba(0, 0, 0, .65);
+    margin-left: 12px
+}
+
+.commit-table .log-item .flex {
+    line-height: 20px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap
+}
+
+.commit-table .log-item .flex-1 {
+    flex: 1
+}
+
+.commit-table .log-item .flex-2 {
+    flex: 2
+}
+
+.commit-table .log-item .flex-3 {
+    flex: 3
+}
+
+.commit-table .log-item .flex-4 {
+    flex: 4
+}
+
+.commit-table .log-item .flex-5 {
+    flex: 5
+}</style>
+```
+
+关于统计报表的处理和安装
+
+1: 安装echarts
+
+```
+pnpm install echarts
+```
+
+2: 定义组件
+
+```vue
+<template>
+    <div id="orderCharts" style="height:400px;width: 100%;">111111</div>
+</template>
+<script setup>
+// 1: 引入echarts
+import * as echarts from 'echarts';
+// 2: 开始定义统计报表 
+const handleLoadCharts = () => {
+    // 基于准备好的dom，初始化echarts实例
+    var myChart = echarts.init(document.getElementById('orderCharts'));
+    // 绘制图表
+    myChart.setOption({
+        color: ['#80FFA5', '#00DDFF', '#37A2FF', '#FF0087', '#FFBF00'],
+        title: {
+            text: ''
+        },
+        tooltip: {
+            trigger: 'axis',
+            axisPointer: {
+            type: 'cross',
+            label: {
+                backgroundColor: '#6a7985'
+            }
+            }
+        },
+        legend: {
+            data: ['Line 1', 'Line 2', 'Line 3', 'Line 4', 'Line 5']
+        },
+        toolbox: {
+            feature: {
+            saveAsImage: {}
+            }
+        },
+        grid: {
+            left: '3%',
+            right: '4%',
+            bottom: '3%',
+            containLabel: true
+        },
+        xAxis: [
+            {
+            type: 'category',
+            boundaryGap: false,
+            data: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+            }
+        ],
+        yAxis: [
+            {
+            type: 'value'
+            }
+        ],
+        series: [
+            {
+            name: 'Line 1',
+            type: 'line',
+            stack: 'Total',
+            smooth: true,
+            lineStyle: {
+                width: 0
+            },
+            showSymbol: false,
+            areaStyle: {
+                opacity: 0.8,
+                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                {
+                    offset: 0,
+                    color: 'rgb(128, 255, 165)'
+                },
+                {
+                    offset: 1,
+                    color: 'rgb(1, 191, 236)'
+                }
+                ])
+            },
+            emphasis: {
+                focus: 'series'
+            },
+            data: [140, 232, 101, 264, 90, 340, 250]
+            },
+            {
+            name: 'Line 2',
+            type: 'line',
+            stack: 'Total',
+            smooth: true,
+            lineStyle: {
+                width: 0
+            },
+            showSymbol: false,
+            areaStyle: {
+                opacity: 0.8,
+                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                {
+                    offset: 0,
+                    color: 'rgb(0, 221, 255)'
+                },
+                {
+                    offset: 1,
+                    color: 'rgb(77, 119, 255)'
+                }
+                ])
+            },
+            emphasis: {
+                focus: 'series'
+            },
+            data: [120, 282, 111, 234, 220, 340, 310]
+            },
+            {
+            name: 'Line 3',
+            type: 'line',
+            stack: 'Total',
+            smooth: true,
+            lineStyle: {
+                width: 0
+            },
+            showSymbol: false,
+            areaStyle: {
+                opacity: 0.8,
+                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                {
+                    offset: 0,
+                    color: 'rgb(55, 162, 255)'
+                },
+                {
+                    offset: 1,
+                    color: 'rgb(116, 21, 219)'
+                }
+                ])
+            },
+            emphasis: {
+                focus: 'series'
+            },
+            data: [320, 132, 201, 334, 190, 130, 220]
+            },
+            {
+            name: 'Line 4',
+            type: 'line',
+            stack: 'Total',
+            smooth: true,
+            lineStyle: {
+                width: 0
+            },
+            showSymbol: false,
+            areaStyle: {
+                opacity: 0.8,
+                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                {
+                    offset: 0,
+                    color: 'rgb(255, 0, 135)'
+                },
+                {
+                    offset: 1,
+                    color: 'rgb(135, 0, 157)'
+                }
+                ])
+            },
+            emphasis: {
+                focus: 'series'
+            },
+            data: [220, 402, 231, 134, 190, 230, 120]
+            },
+            {
+            name: 'Line 5',
+            type: 'line',
+            stack: 'Total',
+            smooth: true,
+            lineStyle: {
+                width: 0
+            },
+            showSymbol: false,
+            label: {
+                show: true,
+                position: 'top'
+            },
+            areaStyle: {
+                opacity: 0.8,
+                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                {
+                    offset: 0,
+                    color: 'rgb(255, 191, 0)'
+                },
+                {
+                    offset: 1,
+                    color: 'rgb(224, 62, 76)'
+                }
+                ])
+            },
+            emphasis: {
+                focus: 'series'
+            },
+            data: [220, 302, 181, 234, 210, 290, 150]
+            }
+        ]
+        });
+}
+
+onMounted(() => {
+    handleLoadCharts()
+})
+</script>
+<style lang="scss" scoped></style>
+```
+
+3: 使用组件
+
+vue3如下：
+
+```vue
+<template>
+	 <div class="dashboard-line-box">
+       <order-stat-charts></order-stat-charts>
+    </div>
+</template>
+<script setup>
+import OrderStatCharts from './compoments/OrderStatCharts.vue';
+</script>
+
+```
+
+vue2的如下：
+
+```vue
+<template>
+	 <div class="dashboard-line-box">
+       <order-stat-charts></order-stat-charts>
+    </div>
+</template>
+<script > 
+import OrderStatCharts from './compoments/OrderStatCharts.vue';
+export default ({
+    components:{
+        OrderStatCharts
+    },
+    data(){
+        return {
+            
+        }
+    }
+})
+</script>
+
+```
+
+## 关于菜单表的设计
+
+
+
+## 关于后台系统中用户，角色，权限的设计
+
+
+
+## 用户授权
+
+
+
+## 角色绑定菜单和绑定权限
+
+
+
+
+
+## 菜单定位导航
+
+
+
+
+
+## 骨架屏幕加载
+
+
+
+## 踢下线
+
+
+
+## 把gva项目中的业务搬家自己架构中
+
+
+
+## 开始实现课程章节管理
+
+
+
+## 订单管理
+
+
+
+## 帖子管理
+
+
+
+## 文章管理
+
+
+
+## 定时器
+
+
+
+## 日志
+
+- zap
+
+## elk
+
+
+
+## 异步编程
+
+
+
+## 自动构建
+
+- model
+- web
+- router
+- page
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # 知识点
 
