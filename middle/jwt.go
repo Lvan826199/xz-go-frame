@@ -12,7 +12,7 @@ import (
 	"time"
 	"xz-go-frame/commons/jwtgo"
 	"xz-go-frame/commons/response"
-	jwtdb "xz-go-frame/model/jwt"
+	jwtdb "xz-go-frame/model/entity/jwt"
 	"xz-go-frame/utils"
 )
 

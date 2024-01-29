@@ -8,7 +8,7 @@ import (
 	"errors"
 	"gorm.io/gorm"
 	"xz-go-frame/global"
-	"xz-go-frame/model/jwt"
+	"xz-go-frame/model/entity/jwt"
 )
 
 type JwtService struct{}

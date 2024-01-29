@@ -6,8 +6,8 @@ package orm
 
 import (
 	"xz-go-frame/global"
-	"xz-go-frame/model/jwt"
-	"xz-go-frame/model/user"
+	"xz-go-frame/model/entity/jwt"
+	"xz-go-frame/model/entity/user"
 )
 
 func RegisterTable() {

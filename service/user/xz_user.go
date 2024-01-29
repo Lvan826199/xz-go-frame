@@ -6,7 +6,7 @@ package user
 
 import (
 	"xz-go-frame/global"
-	"xz-go-frame/model/user"
+	"xz-go-frame/model/entity/user"
 )
 
 // 对用户表的数据层处理

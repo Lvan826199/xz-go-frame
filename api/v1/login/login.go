@@ -8,7 +8,7 @@ import (
 	"time"
 	"xz-go-frame/commons/jwtgo"
 	"xz-go-frame/commons/response"
-	"xz-go-frame/model/user"
+	"xz-go-frame/model/entity/user"
 	service "xz-go-frame/service/user"
 	"xz-go-frame/utils"
 )
