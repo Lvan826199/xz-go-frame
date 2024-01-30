@@ -2942,6 +2942,148 @@ func (api *LoginApi) generaterToken(c *gin.Context, dbUser *user.User) string {
 
 ```
 
+# 11 、 关于逻辑删除得问题和处理
+
+## 01、gorm默认机制
+
+### gorm.Model
+
+GORM 定义一个 `gorm.Model` 结构体，其包括字段 `ID`、`CreatedAt`、`UpdatedAt`、`DeletedAt ` 。
+
+- 其中这里得deletedAt就是用于逻辑删除控制得字段，如果null 就代表没有删除，如果有时间就说你执行过delete from 才会把删除时写入到数据库表中
+- 如果有字段，未来做任何得查询都自动跟上条件deletedAt is null 
+
+
+
+### 修改逻辑删除的默认规则
+
+如果你先修改默认的规则，从时间变成0/1这种方式，你必须如下执行
+
+1: 先安装组件
+
+```go
+gorm.io/plugin/soft_delete
+```
+
+2: 把deletedAt删掉，修改如下：
+
+IsDeleted soft_delete.DeletedAt `gorm:"softDelete:flag,DeletedAtField:DeletedAt;default:0" json:"isDeleted"`
+
+```go
+package global
+
+import (
+	"gorm.io/plugin/soft_delete"
+	"time"
+)
+
+type GVA_MODEL struct {
+	ID        uint      `gorm:"primarykey;comment:主键ID" json:"id"` // 主键ID
+	CreatedAt time.Time `gorm:"type:datetime(0);autoCreateTime;comment:创建时间" json:"createdAt"`
+	UpdatedAt time.Time `gorm:"type:datetime(0);autoUpdateTime;comment:更新时间" json:"updatedAt"`
+	//DeletedAt gorm.DeletedAt `gorm:"index;comment:删除时间" json:"-"` // 删除时间
+	IsDeleted soft_delete.DeletedAt `gorm:"softDelete:flag,DeletedAtField:DeletedAt;default:0" json:"isDeleted"`
+}
+
+```
+
+前面的那些步骤和流程一个都不能省去，比如：注册表
+
+```go
+package orm
+
+import (
+	"xkginweb/global"
+	bbs2 "xkginweb/model/entity/bbs"
+	"xkginweb/model/entity/jwt"
+	sys2 "xkginweb/model/entity/sys"
+	user2 "xkginweb/model/entity/user"
+	video2 "xkginweb/model/entity/video"
+)
+
+func RegisterTable() {
+	db := global.KSD_DB
+	// 注册和声明model
+	db.AutoMigrate(user2.XkUser{})
+	db.AutoMigrate(user2.XkUserAuthor{})
+	// 系统用户，角色，权限表
+	db.AutoMigrate(sys2.SysApis{})
+	db.AutoMigrate(sys2.SysMenus{})
+	db.AutoMigrate(sys2.SysRoleApis{})
+	db.AutoMigrate(sys2.SysRoleMenus{})
+	db.AutoMigrate(sys2.SysRoles{})
+	db.AutoMigrate(sys2.SysUserRoles{})
+	db.AutoMigrate(sys2.SysUser{})
+	// 视频表
+	db.AutoMigrate(video2.XkVideo{})
+	db.AutoMigrate(video2.XkVideoCategory{})
+	db.AutoMigrate(video2.XkVideoChapterLesson{})
+	// 社区
+	db.AutoMigrate(bbs2.XkBbs{})
+	db.AutoMigrate(bbs2.BbsCategory{})
+
+	// 声明一下jwt模型
+	db.AutoMigrate(jwt.JwtBlacklist{})
+}
+
+```
+
+
+
+3：然后重启查看效果即可。
+
+- 其中这里得isDeleted就是用于逻辑删除控制得字段，如果0就代表没有删除，如果是1就是删除
+- 未来你执行任何的删除操作就变成update table set is_deleted = 1,update_time = now() where id = 1
+- 未来做任何得查询都自动跟上条件is_deleted = 0
+
+
+
+4: 我要把删除和未删除全部查询出来？
+
+往往在做后台管理系统的时候，你就必须要把删除和未删除全部查询出来。那么你就必须加上：.Unscoped() 来进行处理这样会把默认机制打破。不在跟已删除过滤。如下：
+
+```go
+// 查询分页
+func (service *SysUserService) LoadSysUserPage(info request.PageInfo) (list interface{}, total int64, err error) {
+	// 获取分页的参数信息
+	limit := info.PageSize
+	offset := info.PageSize * (info.Page - 1)
+
+	// 准备查询那个数据库表
+	db := global.KSD_DB.Model(&sys.SysUser{})
+
+	// 准备切片帖子数组
+	var sysUserList []sys.SysUser
+
+	// 加条件
+	if info.Keyword != "" {
+		db = db.Where("(username like ? or account like ? )", "%"+info.Keyword+"%", "%"+info.Keyword+"%")
+	}
+
+	// 排序默时间降序降序
+	db = db.Order("created_at desc")
+
+	// 查询中枢
+	err = db.Unscoped().Count(&total).Error
+	if err != nil {
+		return sysUserList, total, err
+	} else {
+		// 执行查询
+		err = db.Unscoped().Limit(limit).Offset(offset).Find(&sysUserList).Error
+	}
+
+	// 结果返回
+	return sysUserList, total, err
+}
+```
+
+
+
+# 后端验证Validate
+
+```shell
+```
+
 
 
 # 目录
