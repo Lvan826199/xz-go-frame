@@ -3164,6 +3164,10 @@ func (service *SysUserService) LoadSysUserPage(info request.PageInfo) (list inte
 
 - 泛型约束
 
+41
+
+- 
+
 
 
 # 前端部分
