@@ -3079,11 +3079,6 @@ func (service *SysUserService) LoadSysUserPage(info request.PageInfo) (list inte
 
 
 
-# 后端验证Validate
-
-```shell
-```
-
 
 
 # 目录
@@ -3166,7 +3161,66 @@ func (service *SysUserService) LoadSysUserPage(info request.PageInfo) (list inte
 
 41
 
-- 
+- 后端（少）
+  - 菜单管理递归
+- 前端(多)
+  - 菜单管理 - 添加子菜单 - 删除 - 添加- 编辑
+
+42
+
+- 后端
+  - 查询角色对应的菜单
+- 前端
+  - MenuTab的动态变化，关闭新增，前一个后一个关闭
+  - Tab切换保持数据维持 - keepAlive
+  - 页面缓存加载 Suspense default fallback
+  - form响应该值问题，数据格式改成form.value
+  - 角色切换
+
+43
+
+- 后端
+  - 角色菜单,角色授予sys_role_menus.go
+- 前端
+  - PageSIdebar.vue 子菜单排序问题 sort((a,b)=>a.sort-b.sort)
+  - 全局根据角色权限响应式变换页面
+
+44
+
+- 后端
+  - sql批量插入
+- 前端
+  - menu授权
+  - 角色授权管理右侧树状RoleMenuApis.vue
+
+45-1
+
+- 后端
+  - 又讲了一下泛型
+  - 权限分配，权限管理
+  - sys_casbin权限拦截
+- 前端
+  - 权限管理页面
+
+45-2
+
+- 后端
+  - 认识casbin
+  - https://github.com/casbin/gorm-adapter
+  - 数据库需要建一个表casbin_rule
+- 前端 - 无
+
+46
+
+- 后端
+  - 在login模块里面加
+- 前端
+  - 在user.js添加uuid
+
+47
+
+- 前半部分讲了下后端打包，项目部署，看笔记文档就行，没有难的地方
+- 后半部分讲了下手动前端部署
 
 
 
@@ -8174,9 +8228,7481 @@ export default ({
 
 
 
+# Go 整合zap和日志文件分割处理
 
 
 
+## 01、下载和安装
+
+```go
+# zap核心组件
+go get -u go.uber.org/zap
+# 日志文件分割,日志文件的保留
+go get gopkg.in/natefinch/lumberjack.v2
+```
+
+## 02、日志文件对象的初始化
+
+### 1： 定义全局的日志对象
+
+这个日志对象就未来在你代码去使用，但是前提必须要初始化，如何完成初始化呢，在global.go中定义个日志对象即可。然后吧日志进行初始化。找到项目的global.go文件修改如下：
+
+```go
+package global
+
+import (
+	"github.com/go-redis/redis/v8"
+	"github.com/songzhibin97/gkit/cache/local_cache"
+	"go.uber.org/zap"
+	"gorm.io/gorm"
+	"sync"
+	"xkginweb/commons/parse"
+)
+
+var (
+	Log        *zap.Logger // -------------------------- 新增代码
+	SugarLog   *zap.SugaredLogger // -------------------------- 新增代码
+	Lock       sync.RWMutex
+	Yaml       map[string]interface{}
+	Config     *parse.Config
+	KSD_DB     *gorm.DB
+	BlackCache local_cache.Cache
+	REDIS      *redis.Client
+)
+
+```
+
+### 2：在 [initilization](C:\Users\zxc\go\xkginweb\initilization)*中定义*init_zaplog.go的文件来初始化日志对象信息
+
+```go
+package initilization
+
+import (
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"gopkg.in/natefinch/lumberjack.v2"
+	"os"
+	"time"
+	"xkginweb/global"
+)
+
+func InitLogger(mode string) {
+	var (
+		allCore []zapcore.Core
+		core    zapcore.Core
+	)
+	encoder := getEncoder()
+	writeSyncerInfo := getLumberJackWriterInfo()
+	writeSyncerError := getLumberJackWriterError()
+	// 日志是输出终端
+	if mode == "debug" || mode == "info" {
+		consoleEncoder := zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig())
+		allCore = append(allCore, zapcore.NewCore(consoleEncoder, zapcore.Lock(os.Stdout), zapcore.DebugLevel))
+	}
+
+	if mode == "error" {
+		allCore = append(allCore, zapcore.NewCore(encoder, writeSyncerError, zapcore.ErrorLevel))
+	}
+
+	if mode == "info" {
+		allCore = append(allCore, zapcore.NewCore(encoder, writeSyncerInfo, zapcore.InfoLevel))
+	}
+
+	core = zapcore.NewTee(allCore...)
+	logger := zap.New(core, zap.AddCaller())
+	defer logger.Sync()
+	global.Log = logger
+	global.SugarLog = logger.Sugar()
+}
+
+func getLumberJackWriterError() zapcore.WriteSyncer {
+	lumberJackLogger := &lumberjack.Logger{
+		Filename:   "./zap_error.log", // 日志文件位置
+		MaxSize:    5,                 // 进行切割之前，日志文件最大值(单位：MB)，默认100MB
+		MaxBackups: 5,                 // 保留旧文件的最大个数
+		MaxAge:     1,                 // 保留旧文件的最大天数
+		Compress:   false,             // 是否压缩/归档旧文件
+	}
+
+	// 输入文件和控制台
+	//return zapcore.NewMultiWriteSyncer(zapcore.AddSync(os.Stdout), zapcore.AddSync(lumberJackLogger))
+	// 只输出文件
+	return zapcore.NewMultiWriteSyncer(zapcore.AddSync(lumberJackLogger))
+}
+
+func getLumberJackWriterInfo() zapcore.WriteSyncer {
+	lumberJackLogger := &lumberjack.Logger{
+		Filename:   "./zap_info.log", // 日志文件位置
+		MaxSize:    5,                // 进行切割之前，日志文件最大值(单位：MB)，默认100MB
+		MaxBackups: 5,                // 保留旧文件的最大个数
+		MaxAge:     1,                // 保留旧文件的最大天数
+		Compress:   false,            // 是否压缩/归档旧文件
+	}
+
+	// 输入文件和控制台
+	//return zapcore.NewMultiWriteSyncer(zapcore.AddSync(os.Stdout), zapcore.AddSync(lumberJackLogger))
+	// 只输出文件
+	return zapcore.NewMultiWriteSyncer(zapcore.AddSync(lumberJackLogger))
+}
+
+// json的方式输出
+func getEncoder() zapcore.Encoder {
+	encoderConfig := zap.NewProductionEncoderConfig()
+	encoderConfig.EncodeTime = customTimeEncoder
+	return zapcore.NewJSONEncoder(encoderConfig)
+}
+
+// 空格的方式输出
+//func getEncoder() zapcore.Encoder {
+//	encoderConfig := zap.NewProductionEncoderConfig()
+//	encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+//	encoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
+//	return zapcore.NewConsoleEncoder(encoderConfig)
+//}
+
+func customTimeEncoder(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
+	enc.AppendString(t.Format("2006-01-02 15:04:05.000"))
+}
+
+```
+
+### 3：在main.go中然后初始化 InitLogger的方法即可。
+
+```go
+package main
+
+import (
+	"xkginweb/initilization"
+)
+
+func main() {
+	// 解析配置文件
+	initilization.InitViper()
+    // 初始化日志 开发的时候建议设置成：debug ，发布的时候建议设置成：info/error
+	initilization.InitLogger("error")
+	// 初始化中间 redis/mysql/mongodb
+	initilization.InitMySQL()
+	// 初始化缓存
+	initilization.InitRedis()
+	// 定时器
+	// 并发问题解决方案
+	// 异步编程
+	// 初始化路由
+	initilization.RunServer()
+}
+
+```
+
+### 4：使用
+
+#### sugar用法
+
+```go
+global.SugarLog.Infow("failed to fetch URL",
+  // Structured context as loosely typed key-value pairs.
+  "url", url,
+  "attempt", 3,
+  "backoff", time.Second,
+)
+global.SugarLog.Infof("Failed to fetch URL: %s", url)
+```
+
+#### 非sugar
+
+```go
+global.Log.Info("failed to fetch URL",
+  // Structured context as strongly typed Field values.
+  zap.String("url", url),
+  zap.Int("attempt", 3),
+  zap.Duration("backoff", time.Second),
+)
+```
+
+
+
+## 日志对象是如何初始化呢？
+
+### 日志格式输出的风格
+
+- 默认情况是用空格来定义的，如下：
+
+  ```go
+  	// 日志级别是：debug 或者 info .那么就默认encoder输出格式化改成正常输出
+  	if mode == "debug" || mode == "info" {
+  		consoleEncoder := zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig())
+  		allCore = append(allCore, zapcore.NewCore(consoleEncoder, zapcore.Lock(os.Stdout), zapcore.DebugLevel))
+  	}
+  ```
+
+  上面代码告诉我们。在debug和info级别下。使用 `NewConsoleEncoder` 来进行对日志格式进行输出到控制台，而这种日志格式如下：
+
+  ```go
+  2023-08-07T20:33:02.366+0800    DEBUG   initilization/init_gorm.go:53   数据库连接成功。开始运行
+  ```
+
+- json格式输出
+
+  ```go
+  // 如果error错误级别
+  if mode == "error" {
+      allCore = append(allCore, zapcore.NewCore(encoder, writeSyncerError, zapcore.ErrorLevel))
+  }
+  
+  // 如果是info级别，也写入日志文件
+  if mode == "info" {
+      allCore = append(allCore, zapcore.NewCore(encoder, writeSyncerInfo, zapcore.InfoLevel))
+  }
+  ```
+
+  上面的代码告诉，如果在error或者info的日志级别下，会使用  `encoder == getEncoder()` , 代码如下：
+
+  ```go
+  // json的方式输出
+  func getEncoder() zapcore.Encoder {
+  	encoderConfig := zap.NewProductionEncoderConfig()
+  	encoderConfig.EncodeTime = customTimeEncoder
+  	return zapcore.NewJSONEncoder(encoderConfig)
+  }
+  ```
+
+  上面代码就告诉，如果error和info的日志级别，采用的是json的方式来格式化你的日志内容。同时把格式化好json日志内容写入日志文件中
+
+  debug(在开发阶段设置，因为你在开发阶段都已经错误或者问题都解决了才上生存。) > info > warn>error >Fatal
+
+- 那么在开发中我们一般使用什么？info / error 
+
+  
+
+
+
+
+
+## 日志级别
+
+debug(在开发阶段设置，因为你在开发阶段都已经错误或者问题都解决了才上生存。) > info > warn>error >Fatal
+
+## 日志如何写到日志文件
+
+日志写入到文件使用： `gopkg.in/natefinch/lumberjack.v2`
+
+```go
+// 错误日志写入到文件为止
+func getLumberJackWriterError() zapcore.WriteSyncer {
+	lumberJackLogger := &lumberjack.Logger{
+		Filename:   "./kva_error.log", // 日志文件位置
+		MaxSize:    5,                 // 进行切割之前，日志文件最大值(单位：MB)，默认100MB
+		MaxBackups: 5,                 // 保留旧文件的最大个数
+		MaxAge:     1,                 // 保留旧文件的最大天数
+		Compress:   false,             // 是否压缩/归档旧文件
+	}
+
+	// 输入文件和控制台
+	//return zapcore.NewMultiWriteSyncer(zapcore.AddSync(os.Stdout), zapcore.AddSync(lumberJackLogger))
+	// 只输出文件
+	return zapcore.NewMultiWriteSyncer(zapcore.AddSync(lumberJackLogger))
+}
+
+// info日志文件的指定
+func getLumberJackWriterInfo() zapcore.WriteSyncer {
+	lumberJackLogger := &lumberjack.Logger{
+		Filename:   "./kva_info.log", // 日志文件位置
+		MaxSize:    5,                // 进行切割之前，日志文件最大值(单位：MB)，默认100MB
+		MaxBackups: 5,                // 保留旧文件的最大个数
+		MaxAge:     1,                // 保留旧文件的最大天数
+		Compress:   false,            // 是否压缩/归档旧文件
+	}
+
+	// 输入文件和控制台
+	//return zapcore.NewMultiWriteSyncer(zapcore.AddSync(os.Stdout), zapcore.AddSync(lumberJackLogger))
+	// 只输出文件
+	return zapcore.NewMultiWriteSyncer(zapcore.AddSync(lumberJackLogger))
+}
+
+```
+
+
+
+
+
+## 开始思考，如果扩展日志字段呢？
+
+```
+global.Log.Error("我是是一个error的日志级别")
+global.Log.Fatal("我是fatal日志级别")
+```
+
+写入日志文件
+
+```
+{"level":"error","ts":"2023-08-07 20:57:50.955","caller":"xkginweb/main.go:19","msg":"我是是一个error的日志级别"}
+{"level":"fatal","ts":"2023-08-07 20:57:50.968","caller":"xkginweb/main.go:20","msg":"我是fatal日志级别"}
+{"level":"error","ts":"2023-08-07 20:59:15.305","caller":"xkginweb/main.go:16","msg":"我是是一个error的日志级别"}
+{"level":"fatal","ts":"2023-08-07 20:59:15.321","caller":"xkginweb/main.go:20","msg":"我是fatal日志级别"}
+
+```
+
+默认情况下：
+
+- level : 日志基本
+- ts : 时间
+- caller : 文件和行
+- msg : 日志信息
+
+如果扩展字段
+
+```go
+global.Log.Error("SugarLog 我是一个错误日志", zap.String("ip", "127.0.0.5"))
+global.SugarLog.Errorw("SugarLog 我是一个错误日志", "ip", "127.0.0.1", "port", 8888, "url", "http://www.baidu.com")
+global.SugarLog.Errorf("SugarLog 你访问的地址是：%s, 端口是：%d", "127.0.0.1", 8088)
+```
+
+## 日志又如何写到kafka中
+
+
+
+```go
+package initilization
+
+import (
+	"fmt"
+	"github.com/IBM/sarama"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"gopkg.in/natefinch/lumberjack.v2"
+	"os"
+	"time"
+)
+
+var (
+	logger *zap.Logger
+	sugar  *zap.SugaredLogger
+)
+
+type LogKafka struct {
+	Topic     string
+	Producer  sarama.SyncProducer
+	Partition int32
+}
+
+func (lk *LogKafka) Write(p []byte) (n int, err error) {
+	// 构建消息
+	msg := &sarama.ProducerMessage{
+		Topic:     lk.Topic,
+		Value:     sarama.ByteEncoder(p),
+		Partition: lk.Partition,
+	}
+	// 发现消息
+	_, _, err = lk.Producer.SendMessage(msg)
+	if err != nil {
+		return
+	}
+
+	return
+}
+
+func main() {
+	// mode == debug 日志console输出，其他不输出；kafkaSwitch == false 默认输出到文件，kafkaSwitch == true 输出到kafka
+	InitLoggerKafka("debug", true)
+	// 输出日志
+	sugar.Debugf("查询用户信息开始 id:%d", 1)
+	sugar.Infof("查询用户信息成功 name:%s age:%d", "zhangSan", 20)
+	sugar.Errorf("查询用户信息失败 error:%v", "未该查询到该用户信息")
+
+	time.Sleep(time.Second * 1)
+}
+
+func InitLoggerKafka(mode string, kafkaSwitch bool) {
+	var (
+		err     error
+		allCore []zapcore.Core
+		core    zapcore.Core
+	)
+
+	// 日志是输出终端
+	if mode == "debug" {
+		consoleEncoder := zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig())
+		allCore = append(allCore, zapcore.NewCore(consoleEncoder, zapcore.Lock(os.Stdout), zapcore.DebugLevel))
+	}
+
+	if kafkaSwitch { // 日志输出kafka
+		// kafka配置
+		config := sarama.NewConfig()                     // 设置日志输入到Kafka的配置
+		config.Producer.RequiredAcks = sarama.WaitForAll // 等待服务器所有副本都保存成功后的响应
+		//config.Producer.Partitioner = sarama.NewRandomPartitioner // 随机的分区类型
+		config.Producer.Return.Successes = true // 是否等待成功后的响应,只有上面的RequiredAcks设置不是NoReponse这里才有用.
+		config.Producer.Return.Errors = true    // 是否等待失败后的响应,只有上面的RequireAcks设置不是NoReponse这里才有用.
+
+		// kafka连接
+		var kl LogKafka
+		kl.Topic = "LogTopic" // Topic(话题)：Kafka中用于区分不同类别信息的类别名称。由producer指定
+		kl.Partition = 1      // Partition(分区)：Topic物理上的分组，一个topic可以分为多个partition，每个partition是一个有序的队列。partition中的每条消息都会被分配一个有序的id（offset）
+		kl.Producer, err = sarama.NewSyncProducer([]string{"127.0.0.1:9092"}, config)
+		if err != nil {
+			panic(fmt.Sprintf("connect kafka failed: %+v\n", err))
+		}
+		encoder := getEncoderKafka()
+		writeSyncer := zapcore.AddSync(&kl)
+		allCore = append(allCore, zapcore.NewCore(encoder, writeSyncer, zapcore.DebugLevel))
+	} else { // 日志输出file
+		encoder := getEncoder()
+		writeSyncer := getLumberJackWriter()
+		allCore = append(allCore, zapcore.NewCore(encoder, writeSyncer, zapcore.DebugLevel))
+	}
+
+	core = zapcore.NewTee(allCore...)
+	logger = zap.New(core, zap.AddCaller())
+	defer logger.Sync()
+	sugar = logger.Sugar()
+}
+
+func getLumberJackWriter() zapcore.WriteSyncer {
+	lumberJackLogger := &lumberjack.Logger{
+		Filename:   "./test.log", // 日志文件位置
+		MaxSize:    1,            // 进行切割之前，日志文件最大值(单位：MB)，默认100MB
+		MaxBackups: 5,            // 保留旧文件的最大个数
+		MaxAge:     1,            // 保留旧文件的最大天数
+		Compress:   false,        // 是否压缩/归档旧文件
+	}
+
+	return zapcore.NewMultiWriteSyncer(zapcore.AddSync(os.Stdout), zapcore.AddSync(lumberJackLogger))
+}
+
+func getEncoderKafka() zapcore.Encoder {
+	encoderConfig := zap.NewProductionEncoderConfig()
+	encoderConfig.EncodeTime = customTimeEncoderKafka
+	return zapcore.NewJSONEncoder(encoderConfig)
+}
+
+func customTimeEncoderKafka(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
+	enc.AppendString(t.Format("2006-01-02 15:04:05.000"))
+}
+
+```
+
+
+
+## 封装web请求日志
+
+
+
+```go
+
+```
+
+## gorm数据库日志的配置
+
+```go
+package initilization
+
+import (
+	"go.uber.org/zap"
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
+	logger2 "gorm.io/gorm/logger"
+	"log"
+	"os"
+	"time"
+	"xkginweb/commons/orm"
+	"xkginweb/global"
+)
+
+func InitMySQL() {
+
+	// 初始化gorm的日志
+	newLogger := logger2.New(
+		log.New(os.Stdout, "\r\n", log.LstdFlags), // io writer
+		logger2.Config{
+			SlowThreshold:             time.Second,  // Slow SQL threshold
+			LogLevel:                  logger2.Info, // Log level
+			IgnoreRecordNotFoundError: false,        // Ignore ErrRecordNotFound error for logger
+			ParameterizedQueries:      false,        // Don't include params in the SQL log
+			Colorful:                  true,         // Disable color
+		},
+	)
+
+	m := global.Config.Database.Mysql
+	db, err := gorm.Open(mysql.New(mysql.Config{
+		DSN:                       m.Dsn(), // DSN data source name
+		DefaultStringSize:         191,     // string 类型字段的默认长度
+		DontSupportRenameIndex:    true,    // 重命名索引时采用删除并新建的方式，MySQL 5.7 之前的数据库和 MariaDB 不支持重命名索引
+		DontSupportRenameColumn:   true,    // 用 `change` 重命名列，MySQL 8 之前的数据库和 MariaDB 不支持重命名列
+		SkipInitializeWithVersion: false,   // 根据当前 MySQL 版本自动配置
+	}), &gorm.Config{
+		// GORM 定义了这些日志级别：Silent、Error、Warn、Info
+		//Logger: logger.Default.LogMode(logger.Info),
+		Logger: newLogger,
+	})
+
+	// 如果报错
+	if err != nil {
+		global.Log.Error("数据连接出错了", zap.String("error", err.Error()))
+		panic("数据连接出错了" + err.Error()) // 把程序直接阻断，把数据连接好了在启动
+	}
+
+	global.KSD_DB = db
+	// 初始化数据库表
+	orm.RegisterTable()
+
+	// 日志输出
+	global.Log.Debug("数据库连接成功。开始运行", zap.Any("db", db))
+}
+
+```
+
+## gin的日志配置
+
+```go
+package initilization
+
+import (
+	"fmt"
+	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
+	"net/http"
+	"time"
+	"xkginweb/commons/filter"
+	"xkginweb/commons/middle"
+	"xkginweb/global"
+	"xkginweb/router"
+	"xkginweb/router/code"
+	"xkginweb/router/login"
+)
+
+func InitGinRouter() *gin.Engine {
+	// 打印gin的时候日志是否用颜色标出
+	//gin.ForceConsoleColor()
+	//gin.DisableConsoleColor()
+	//f, _ := os.Create("gin.log")
+	//gin.DefaultWriter = io.MultiWriter(f)
+	// 如果需要同时将日志写入文件和控制台，请使用以下代码。
+	//gin.DefaultWriter = io.MultiWriter(f, os.Stdout)
+
+	// 创建gin服务
+	ginServer := gin.Default()
+	// 提供服务组
+	courseRouter := router.RouterWebGroupApp.Course.CourseRouter
+	videoRouter := router.RouterWebGroupApp.Video.VideoRouter
+	menusRouter := router.RouterWebGroupApp.SysMenu.SysMenusRouter
+
+	// 解决接口的跨域问题
+	ginServer.Use(filter.Cors())
+
+	loginRouter := login.LoginRouter{}
+	logoutRouter := login.LogoutRouter{}
+	codeRouter := code.CodeRouter{}
+	// 接口隔离，比如登录，健康检查都不需要拦截和做任何的处理
+	// 业务模块接口，
+	privateGroup := ginServer.Group("/api")
+	// 不需要拦截就放注册中间间的前面,需要拦截的就放后面
+	loginRouter.InitLoginRouter(privateGroup)
+	codeRouter.InitCodeRouter(privateGroup)
+	// 只要接口全部使用jwt拦截
+	privateGroup.Use(middle.JWTAuth())
+	{
+		logoutRouter.InitLogoutRouter(privateGroup)
+		videoRouter.InitVideoRouter(privateGroup)
+		courseRouter.InitCourseRouter(privateGroup)
+		menusRouter.InitSysMenusRouter(privateGroup)
+	}
+
+	fmt.Println("router register success")
+	return ginServer
+}
+
+func RunServer() {
+	// 初始化路由
+	Router := InitGinRouter()
+	// 为用户头像和文件提供静态地址
+	Router.StaticFS("/static", http.Dir("/static"))
+	address := fmt.Sprintf(":%d", global.Yaml["server.port"])
+	// 启动HTTP服务,courseController
+	s := initServer(address, Router)
+	global.Log.Debug("服务启动成功：端口是：", zap.String("port", "8088"))
+	// 保证文本顺序输出
+	// In order to ensure that the text order output can be deleted
+	time.Sleep(10 * time.Microsecond)
+
+	s2 := s.ListenAndServe().Error()
+	global.Log.Info("服务启动完毕", zap.Any("s2", s2))
+}
+
+```
+
+这里就告诉我们一个道理。你可以自己使用zap来完成gin的日志的事情，或者完成gorm日志的事情。
+
+
+
+# Zap日志输出kafka、文件、console
+
+## 前言
+
+日志对于项目的重要性不言而喻，之前项目线上的日志都是zap输出到文件，再由filebeat读取输出到kafka，文件服务器保留了大量的日志文件，而且有时filebeat服务重启，可能会导致日志消费重复的问题。所以后面就考虑直接输出到kafka，这样可以减少filebeat的处理过程，且不会出现日志重复消费的问题。
+
+## 一、Kafka服务
+
+部署服务这里采用docker部署，毕竟部署过程不是重点；这里一共部署3个服务，zookeeper、kafka、kafdrop（kafka管理）。
+
+```yaml
+version: "3"
+services:
+  zookeeper:
+    image: 'bitnami/zookeeper:3.7'
+    ports:
+      - '2181:2181'
+    environment:
+      - ALLOW_ANONYMOUS_LOGIN=yes
+  kafka:
+    image: 'bitnami/kafka:3.2.0'
+    ports:
+      - '9092:9092'
+    environment:
+      - KAFKA_BROKER_ID=1
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://127.0.0.1:9092
+      - KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181
+      - ALLOW_PLAINTEXT_LISTENER=yes
+    depends_on:
+      - zookeeper
+  kafdrop:
+    image: 'obsidiandynamics/kafdrop:3.30.0'
+    restart: always
+    ports:
+      - "9000:9000"
+    environment:
+      - KAFKA_BROKERCONNECT=kafka:9092
+    depends_on:
+      - zookeeper
+      - kafka
+```
+
+将上述代码放入"docker-compose.yml"文件，然后在该文件下执行"docker-compose up -d zookeeper kafka kafdrop"，等待镜像下载和服务器，这个该过程可能需要点时间。若安装成功，访问"http://localhost:59000/"，就可以进入kafka管理界面。
+
+## 二Zap日志输出
+
+### 1.输出console
+
+```go
+package main
+ 
+import (
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"os"
+	"time"
+)
+ 
+var (
+	logger *zap.Logger
+	sugar  *zap.SugaredLogger
+)
+ 
+func main() {
+	// mode == debug 日志console数据，其他不输出
+	InitLogger("debug")
+ 
+	// 输出日志
+	sugar.Debugf("查询用户信息开始 id:%d", 1)
+	sugar.Infof("查询用户信息成功 name:%s age:%d", "zhangSan", 20)
+	sugar.Errorf("查询用户信息失败 error:%v", "未该查询到该用户信息")
+}
+ 
+func InitLogger(mode string) {
+	var (
+		allCore []zapcore.Core
+		core    zapcore.Core
+	)
+ 
+	// 进入debug模式，日志输出到终端
+	if mode == "debug" {
+		consoleEncoder := zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig())
+		allCore = append(allCore, zapcore.NewCore(consoleEncoder, zapcore.Lock(os.Stdout), zapcore.DebugLevel))
+	}
+ 
+	core = zapcore.NewTee(allCore...)
+	logger = zap.New(core, zap.AddCaller())
+	defer logger.Sync()
+	sugar = logger.Sugar()
+}
+ 
+func customTimeEncoder(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
+	enc.AppendString(t.Format("2006-01-02 15:04:05.000"))
+}
+```
+
+运行上述代码输出结果如下：
+![img.png](images/img.png)
+
+### 2.输出file
+
+```go
+func InitLogger(mode string) {
+	var (
+		allCore []zapcore.Core
+		core    zapcore.Core
+	)
+ 
+	// 日志是输出终端
+	if mode == "debug" {
+		consoleEncoder := zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig())
+		allCore = append(allCore, zapcore.NewCore(consoleEncoder, zapcore.Lock(os.Stdout), zapcore.DebugLevel))
+	}
+ 
+	// 日志输出文件
+	encoder := getEncoder()
+	writeSyncer := getLumberJackWriter()
+	allCore = append(allCore, zapcore.NewCore(encoder, writeSyncer, zapcore.DebugLevel))
+ 
+	core = zapcore.NewTee(allCore...)
+	logger = zap.New(core, zap.AddCaller())
+	defer logger.Sync()
+	sugar = logger.Sugar()
+}
+ 
+func getLumberJackWriter() zapcore.WriteSyncer {
+	lumberJackLogger := &lumberjack.Logger{
+		Filename:   "./test.log", // 日志文件位置
+		MaxSize:    1,            // 进行切割之前，日志文件最大值(单位：MB)，默认100MB
+		MaxBackups: 5,            // 保留旧文件的最大个数
+		MaxAge:     1,            // 保留旧文件的最大天数
+		Compress:   false,        // 是否压缩/归档旧文件
+	}
+ 
+	return zapcore.NewMultiWriteSyncer(zapcore.AddSync(os.Stdout), zapcore.AddSync(lumberJackLogger))
+}
+ 
+func getEncoder() zapcore.Encoder {
+	encoderConfig := zap.NewProductionEncoderConfig()
+	encoderConfig.EncodeTime = customTimeEncoder
+	return zapcore.NewJSONEncoder(encoderConfig)
+}
+```
+
+运行上述代码，会生成test.log， 如果日志大于1MB，会进行自动分割，大家可以自己尝试；test.log内容如下：
+![img_1.png](images/img_1.png)
+
+###  3.输出kafka
+
+```go
+package main
+ 
+import (
+	"fmt"
+	"github.com/Shopify/sarama"
+	"github.com/natefinch/lumberjack"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"os"
+	"time"
+)
+ 
+var (
+	logger *zap.Logger
+	sugar  *zap.SugaredLogger
+)
+ 
+type LogKafka struct {
+	Topic     string
+	Producer  sarama.SyncProducer
+	Partition int32
+}
+ 
+func (lk *LogKafka) Write(p []byte) (n int, err error) {
+	// 构建消息
+	msg := &sarama.ProducerMessage{
+		Topic:     lk.Topic,
+		Value:     sarama.ByteEncoder(p),
+		Partition: lk.Partition,
+	}
+	// 发现消息
+	_, _, err = lk.Producer.SendMessage(msg)
+	if err != nil {
+		return
+	}
+ 
+	return
+}
+ 
+func main() {
+	// mode == debug 日志console输出，其他不输出；kafkaSwitch == false 默认输出到文件，kafkaSwitch == true 输出到kafka
+	InitLogger("debug", true)
+ 
+	// 输出日志
+	sugar.Debugf("查询用户信息开始 id:%d", 1)
+	sugar.Infof("查询用户信息成功 name:%s age:%d", "zhangSan", 20)
+	sugar.Errorf("查询用户信息失败 error:%v", "未该查询到该用户信息")
+ 
+	time.Sleep(time.Second * 1)
+}
+ 
+func InitLogger(mode string, kafkaSwitch bool) {
+	var (
+		err     error
+		allCore []zapcore.Core
+		core    zapcore.Core
+	)
+ 
+	// 日志是输出终端
+	if mode == "debug" {
+		consoleEncoder := zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig())
+		allCore = append(allCore, zapcore.NewCore(consoleEncoder, zapcore.Lock(os.Stdout), zapcore.DebugLevel))
+	}
+ 
+	if kafkaSwitch { // 日志输出kafka
+		// kafka配置
+		config := sarama.NewConfig()                     // 设置日志输入到Kafka的配置
+		config.Producer.RequiredAcks = sarama.WaitForAll // 等待服务器所有副本都保存成功后的响应
+		//config.Producer.Partitioner = sarama.NewRandomPartitioner // 随机的分区类型
+		config.Producer.Return.Successes = true // 是否等待成功后的响应,只有上面的RequiredAcks设置不是NoReponse这里才有用.
+		config.Producer.Return.Errors = true    // 是否等待失败后的响应,只有上面的RequireAcks设置不是NoReponse这里才有用.
+ 
+		// kafka连接
+		var kl LogKafka
+		kl.Topic = "LogTopic" // Topic(话题)：Kafka中用于区分不同类别信息的类别名称。由producer指定
+		kl.Partition = 1      // Partition(分区)：Topic物理上的分组，一个topic可以分为多个partition，每个partition是一个有序的队列。partition中的每条消息都会被分配一个有序的id（offset）
+		kl.Producer, err = sarama.NewSyncProducer([]string{"127.0.0.1:9092"}, config)
+		if err != nil {
+			panic(fmt.Sprintf("connect kafka failed: %+v\n", err))
+		}
+		encoder := getEncoder()
+		writeSyncer := zapcore.AddSync(&kl)
+		allCore = append(allCore, zapcore.NewCore(encoder, writeSyncer, zapcore.DebugLevel))
+	} else { // 日志输出file
+		encoder := getEncoder()
+		writeSyncer := getLumberJackWriter()
+		allCore = append(allCore, zapcore.NewCore(encoder, writeSyncer, zapcore.DebugLevel))
+	}
+ 
+	core = zapcore.NewTee(allCore...)
+	logger = zap.New(core, zap.AddCaller())
+	defer logger.Sync()
+	sugar = logger.Sugar()
+}
+ 
+func getLumberJackWriter() zapcore.WriteSyncer {
+	lumberJackLogger := &lumberjack.Logger{
+		Filename:   "./test.log", // 日志文件位置
+		MaxSize:    1,            // 进行切割之前，日志文件最大值(单位：MB)，默认100MB
+		MaxBackups: 5,            // 保留旧文件的最大个数
+		MaxAge:     1,            // 保留旧文件的最大天数
+		Compress:   false,        // 是否压缩/归档旧文件
+	}
+ 
+	return zapcore.NewMultiWriteSyncer(zapcore.AddSync(os.Stdout), zapcore.AddSync(lumberJackLogger))
+}
+ 
+func getEncoder() zapcore.Encoder {
+	encoderConfig := zap.NewProductionEncoderConfig()
+	encoderConfig.EncodeTime = customTimeEncoder
+	return zapcore.NewJSONEncoder(encoderConfig)
+}
+ 
+func customTimeEncoder(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
+	enc.AppendString(t.Format("2006-01-02 15:04:05.000"))
+}
+```
+
+上述代码通过"kafkaSwitch"控制日志输出到file还是kafka，这里输出到kafka，结果如下：
+![img_2.png](images/img_2.png)
+![img_3.png](images/img_3.png)
+
+### 总结
+
+通过上述列子，我们可以轻松在项目中实现日志输出，自由选择cosole、file、kafka，方便项目开发和问题排查。
+
+
+
+# 实现系统用户表的管理
+
+
+
+## 01、系统后台相关表的业务对照
+
+- sys_user —后台用户表
+
+  ![image-20230807214954498](images/image-20230807214954498.png)
+
+- sys_apis — 权限表 
+
+  ![image-20230807214945444](images/image-20230807214945444.png)
+
+- sys_roles—角色表
+
+  ![image-20230807214936137](images/image-20230807214936137.png)
+
+- sys_menus – 菜单表
+
+  ![image-20230807215002879](../../../../../../L_Learning/%25E6%25B5%258B%25E5%25BC%2580%25E8%25AF%25BE%25E7%25A8%258B/%25E7%258B%2582%25E7%25A5%259E/3-%25E9%25A1%25B9%25E7%259B%25AE%25E5%25AE%259E%25E6%2588%2598%2520-%2520GVA%25E5%2590%258E%25E5%258F%25B0%25E9%25A1%25B9%25E7%259B%25AE%25E7%25AE%25A1%25E7%2590%2586%25E5%25BC%2580%25E5%258F%2591/20230817%25EF%25BC%259A%25E7%25AC%25AC%25E4%25B8%2589%25E5%258D%2581%25E4%25B9%259D%25E8%25AF%25BE%25EF%25BC%259A%25E8%2587%25AA%25E5%25BB%25BA%25E9%25A1%25B9%25E7%259B%25AE-%25E8%25A7%2592%25E8%2589%25B2%25E3%2580%2581%25E8%258F%259C%25E5%258D%2595%25E3%2580%2581%25E6%259D%2583%25E9%2599%2590%25E6%25B7%25BB%25E5%258A%25A0%25EF%25BC%258C%25E8%258A%2582%25E6%25B5%2581%25E5%2592%258C%25E9%2598%25B2%25E6%258A%2596%25E7%259A%2584%25E5%25BA%2594%25E7%2594%25A8%25E5%2592%258C%25E5%25A4%2584%25E7%2590%2586(1)/%25E9%25A1%25B9%25E7%259B%25AE%25E7%25AC%2594%25E8%25AE%25B0/assets/image-20230807215002879.png)
+
+- sys_role_apis—角色权限 
+
+  ![image-20230807215102175](images/image-20230807215102175.png)
+
+- sys_role_menus — 角色菜单
+
+  ![image-20230807215114855](images/image-20230807215114855.png)
+
+- sys_user_roles —- 用户角色
+
+  ![image-20230807215039489](images/image-20230807215039489.png)
+
+
+
+# 后台用户管理
+
+## 01、 概述
+
+系统用户，是不注册，一般都是 由超级管理员在后台添加和分配，然后给账号和初始密码给予小伙伴，然后在登录。
+
+## 02、对应的表
+
+```sql
+CREATE TABLE `sys_users` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `created_at` datetime DEFAULT NULL COMMENT '创建时间',
+  `updated_at` datetime DEFAULT NULL COMMENT '更新时间',
+  `uuid` varchar(191) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '用户UUID',
+  `account` varchar(191) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '用户登录名',
+  `password` varchar(191) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '用户登录密码',
+  `username` varchar(191) COLLATE utf8mb4_unicode_ci DEFAULT '系统用户' COMMENT '用户昵称',
+  `avatar` varchar(191) COLLATE utf8mb4_unicode_ci DEFAULT 'https://qmplusimg.henrongyi.top/gva_header.jpg' COMMENT '用户头像',
+  `phone` varchar(191) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '用户手机号',
+  `email` varchar(191) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '用户邮箱',
+  `enable` bigint(20) DEFAULT '1' COMMENT '用户是否被冻结 1正常 2冻结',
+  `is_deleted` bigint(20) unsigned DEFAULT '0',
+  PRIMARY KEY (`id`) USING BTREE,
+  KEY `idx_sys_users_uuid` (`uuid`) USING BTREE,
+  KEY `idx_sys_users_username` (`account`) USING BTREE,
+  KEY `idx_sys_users_account` (`account`)
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC;
+```
+
+## 03、实现步骤
+
+- model
+
+  ```go
+  package sys
+  
+  import (
+  	uuid "github.com/satori/go.uuid"
+  	"xkginweb/global"
+  )
+  
+  type SysUser struct {
+  	global.GVA_MODEL
+  	UUID     uuid.UUID `json:"uuid" gorm:"index;comment:用户UUID"`                                                  // 用户UUID
+  	Account  string    `json:"account" gorm:"index;comment:用户登录名"`                                                // 用户登录名
+  	Password string    `json:"-"  gorm:"comment:用户登录密码"`                                                          // 用户登录密码
+  	Username string    `json:"username" gorm:"default:系统用户;comment:用户昵称"`                                         // 用户昵称
+  	Avatar   string    `json:"avatar" gorm:"default:https://qmplusimg.henrongyi.top/gva_header.jpg;comment:用户头像"` // 用户头像
+  	Phone    string    `json:"phone"  gorm:"comment:用户手机号"`                                                       // 用户手机号
+  	Email    string    `json:"email"  gorm:"comment:用户邮箱"`                                                        // 用户邮箱
+  	Enable   int       `json:"enable" gorm:"default:1;comment:用户是否被冻结 1正常 2冻结"`                                   //用户是否被冻结 1正常 2冻结
+  }
+  
+  func (s *SysUser) TableName() string {
+  	return "sys_users"
+  }
+  
+  ```
+
+- model init
+
+  ```
+  package orm
+  
+  import (
+  	"xkginweb/global"
+  	"xkginweb/model/bbs"
+  	"xkginweb/model/jwt"
+  	"xkginweb/model/sys"
+  	"xkginweb/model/user"
+  	"xkginweb/model/video"
+  )
+  
+  func RegisterTable() {
+  	db := global.KSD_DB
+  	// 注册和声明model
+  	db.AutoMigrate(user.XkUser{})
+  	db.AutoMigrate(user.XkUserAuthor{})
+  	// 系统用户，角色，权限表
+  	db.AutoMigrate(sys.SysApi{})
+  	db.AutoMigrate(sys.SysMenus{})
+  	db.AutoMigrate(sys.SysRoleApis{})
+  	db.AutoMigrate(sys.SysRoleMenus{})
+  	db.AutoMigrate(sys.SysRoles{})
+  	db.AutoMigrate(sys.SysUserRoles{})
+  	db.AutoMigrate(sys.SysUser{}) //-----------------新增代码
+  	// 视频表
+  	db.AutoMigrate(video.XkVideo{})
+  	db.AutoMigrate(video.XkVideoCategory{})
+  	db.AutoMigrate(video.XkVideoChapterLesson{})
+  	// 社区
+  	db.AutoMigrate(bbs.XkBbs{})
+  	db.AutoMigrate(bbs.BbsCategory{})
+  
+  	// 声明一下jwt模型
+  	db.AutoMigrate(jwt.JwtBlacklist{})
+  }
+  
+  ```
+
+- service
+
+  ```go
+  package sys
+  
+  import (
+  	"xkginweb/global"
+  	"xkginweb/model/comms/request"
+  	"xkginweb/model/sys"
+  )
+  
+  // 对用户表的数据层处理
+  type SysUserService struct{}
+  
+  // 用于登录
+  func (service *SysUserService) GetUserByAccount(account string) (sysUser *sys.SysUser, err error) {
+  	// 根据account进行查询
+  	err = global.KSD_DB.Where("account = ?", account).First(&sysUser).Error
+  	if err != nil {
+  		return nil, err
+  	}
+  	return sysUser, nil
+  }
+  
+  // 添加
+  func (service *SysUserService) SaveSysUser(sysUser *sys.SysUser) (err error) {
+  	err = global.KSD_DB.Create(sysUser).Error
+  	return err
+  }
+  
+  // 修改
+  func (menu *SysMenusService) UpdateSysUser(sysUser *sys.SysUser) (err error) {
+  	err = global.KSD_DB.Model(sysUser).Updates(sysUser).Error
+  	return err
+  }
+  
+  // 删除
+  func (menu *SysMenusService) DelSysUserById(id uint) (err error) {
+  	var sysUser sys.SysUser
+  	err = global.KSD_DB.Where("id = ?", id).Delete(&sysUser).Error
+  	return err
+  }
+  
+  // 批量删除
+  func (menu *SysMenusService) DeleteSysUsersByIds(sysUsers []sys.SysUser) (err error) {
+  	err = global.KSD_DB.Delete(&sysUsers).Error
+  	return err
+  }
+  
+  // 根据id查询信息
+  func (menu *SysMenusService) GetSysUserByID(id uint) (sysUsers *sys.SysUser, err error) {
+  	err = global.KSD_DB.Where("id = ?", id).First(&sysUsers).Error
+  	return
+  }
+  
+  // 查询分页
+  func (menu *SysMenusService) LoadSysUserPage(info request.PageInfo) (list interface{}, total int64, err error) {
+  	// 获取分页的参数信息
+  	limit := info.PageSize
+  	offset := info.PageSize * (info.Page - 1)
+  
+  	// 准备查询那个数据库表
+  	db := global.KSD_DB.Model(&sys.SysUser{})
+  
+  	// 准备切片帖子数组
+  	var sysUserList []sys.SysUser
+  
+  	// 加条件
+  	if info.Keyword != "" {
+  		db = db.Where("(username like ? or account like ? )", "%"+info.Keyword+"%", "%"+info.Keyword+"%")
+  	}
+  
+  	// 排序默时间降序降序
+  	db = db.Order("create_at desc")
+  
+  	// 查询中枢
+  	err = db.Count(&total).Error
+  	if err != nil {
+  		return sysUserList, total, err
+  	} else {
+  		// 执行查询
+  		err = db.Limit(limit).Offset(offset).Find(&sysUserList).Error
+  	}
+  
+  	// 结果返回
+  	return sysUserList, total, err
+  }
+  
+  ```
+
+  
+
+- api
+
+  ```go
+  package sys
+  
+  import (
+  	"github.com/gin-gonic/gin"
+  	"strconv"
+  	"xkginweb/commons/response"
+  	"xkginweb/global"
+  	req "xkginweb/model/comms/request"
+  	resp "xkginweb/model/comms/response"
+  )
+  
+  type SysUsersApi struct{}
+  
+  /* 根据id查询用户信息 */
+  func (api *SysUsersApi) GetById(c *gin.Context) {
+  	// 根据id查询方法
+  	id := c.Param("id")
+  	// 根据id查询方法
+  	parseUint, _ := strconv.ParseUint(id, 10, 64)
+  	sysUser, err := sysUserService.GetSysUserByID(uint(parseUint))
+  	if err != nil {
+  		global.SugarLog.Errorf("查询用户: %s 失败", id)
+  		response.FailWithMessage("查询用户失败", c)
+  		return
+  	}
+  
+  	response.Ok(sysUser, c)
+  }
+  
+  /* 分页查询用户信息*/
+  func (api *SysUsersApi) LoadSysUserPage(c *gin.Context) {
+  	// 创建一个分页对象
+  	var pageInfo req.PageInfo
+  	// 把前端json的参数传入给PageInfo
+  	err := c.ShouldBindJSON(&pageInfo)
+  	if err != nil {
+  		response.FailWithMessage(err.Error(), c)
+  		return
+  	}
+  
+  	xkBbsPage, total, err := sysUserService.LoadSysUserPage(pageInfo)
+  	if err != nil {
+  		response.FailWithMessage("获取失败"+err.Error(), c)
+  		return
+  	}
+  	response.Ok(resp.PageResult{
+  		List:     xkBbsPage,
+  		Total:    total,
+  		Page:     pageInfo.Page,
+  		PageSize: pageInfo.PageSize,
+  	}, c)
+  }
+  
+  ```
+
+  
+
+- router
+
+  ```go
+  package sys
+  
+  import (
+  	"github.com/gin-gonic/gin"
+  	"xkginweb/api/v1/sys"
+  )
+  
+  // 登录路由
+  type SysUsersRouter struct{}
+  
+  func (router *SysUsersRouter) InitSysUsersRouter(Router *gin.RouterGroup) {
+  	sysUsersApi := sys.SysUsersApi{}
+  	// 用组定义--（推荐）
+  	sysMenusRouter := Router.Group("/sys")
+  	{
+  		sysMenusRouter.GET("/user/get/:id", sysUsersApi.GetById)
+  		sysMenusRouter.GET("/user/load", sysUsersApi.LoadSysUserPage)
+  	}
+  }
+  
+  ```
+
+  
+
+- router init
+
+  ```go
+  package initilization
+  
+  import (
+  	"fmt"
+  	"github.com/gin-gonic/gin"
+  	"go.uber.org/zap"
+  	"net/http"
+  	"time"
+  	"xkginweb/commons/filter"
+  	"xkginweb/commons/middle"
+  	"xkginweb/global"
+  	"xkginweb/router"
+  	"xkginweb/router/code"
+  	"xkginweb/router/login"
+  	"xkginweb/router/sys"
+  )
+  
+  func InitGinRouter() *gin.Engine {
+  	// 打印gin的时候日志是否用颜色标出
+  	//gin.ForceConsoleColor()
+  	//gin.DisableConsoleColor()
+  	//f, _ := os.Create("gin.log")
+  	//gin.DefaultWriter = io.MultiWriter(f)
+  	// 如果需要同时将日志写入文件和控制台，请使用以下代码。
+  	//gin.DefaultWriter = io.MultiWriter(f, os.Stdout)
+  
+  	// 创建gin服务
+  	ginServer := gin.Default()
+  	// 提供服务组
+  	courseRouter := router.RouterWebGroupApp.Course.CourseRouter
+  	videoRouter := router.RouterWebGroupApp.Video.VideoRouter
+  	menusRouter := router.RouterWebGroupApp.SysMenu.SysMenusRouter
+  
+  	// 解决接口的跨域问题
+  	ginServer.Use(filter.Cors())
+  
+  	loginRouter := login.LoginRouter{}
+  	logoutRouter := login.LogoutRouter{}
+  	codeRouter := code.CodeRouter{}
+  	sysUserRouter := sys.SysUsersRouter{}
+  	// 接口隔离，比如登录，健康检查都不需要拦截和做任何的处理
+  	// 业务模块接口，
+  	privateGroup := ginServer.Group("/api")
+  	// 不需要拦截就放注册中间间的前面,需要拦截的就放后面
+  	loginRouter.InitLoginRouter(privateGroup)
+  	codeRouter.InitCodeRouter(privateGroup)
+  	// 只要接口全部使用jwt拦截
+  	privateGroup.Use(middle.JWTAuth())
+  	{
+  		logoutRouter.InitLogoutRouter(privateGroup)
+  		videoRouter.InitVideoRouter(privateGroup)
+  		courseRouter.InitCourseRouter(privateGroup)
+  		menusRouter.InitSysMenusRouter(privateGroup)
+  		sysUserRouter.InitSysUsersRouter(privateGroup)
+  	}
+  
+  	fmt.Println("router register success")
+  	return ginServer
+  }
+  
+  func RunServer() {
+  
+  	// 初始化路由
+  	Router := InitGinRouter()
+  	// 为用户头像和文件提供静态地址
+  	Router.StaticFS("/static", http.Dir("/static"))
+  	address := fmt.Sprintf(":%d", global.Yaml["server.port"])
+  	// 启动HTTP服务,courseController
+  	s := initServer(address, Router)
+  	global.Log.Debug("服务启动成功：端口是：", zap.String("port", "8088"))
+  	// 保证文本顺序输出
+  	// In order to ensure that the text order output can be deleted
+  	time.Sleep(10 * time.Microsecond)
+  
+  	s2 := s.ListenAndServe().Error()
+  	global.Log.Info("服务启动完毕", zap.Any("s2", s2))
+  }
+  
+  ```
+
+  
+
+- 定义路由接口 
+
+  ```js
+  import request from '@/request/index.js'
+  
+  /**
+   * 查询系统用户信息
+   */
+  export const LoadSysUser = ()=>{
+     return request.get(`/sys/user/load`)
+  }
+  
+  /**
+   * 根据id查询系统用户信息
+   */
+  export const GetSysUserById = ( id )=>{
+     return request.get(`/sys/user/${id}`)
+  }
+  
+  
+  ```
+
+
+
+
+
+# 03、登录页面调整
+
+你只需要把页面直接覆盖即可。包括背景图放置在src/assets/imgs目录下，直接在这里去找即可。
+
+```vue
+<template>
+    <div class="login-box">
+        <div class="imgbox">
+            <div class="bgblue"></div> 
+                <ul class="circles">
+                    <li></li>
+                    <li></li>
+                    <li></li>
+                    <li></li>
+                    <li></li>
+                    <li></li>
+                    <li></li>
+                    <li></li>
+                    <li></li>
+                    <li></li>
+                </ul>
+            <div class="w-full max-w-md">
+                <div class="fz48 cof fw">欢迎光临</div>
+                <div class="fz14 cof" style="margin-top:10px;line-height:24px;">欢迎来到好玩俱乐部，在这里和志同道合的朋友一起分享有趣的故事，一起组织有趣的活动...</div>
+            </div>
+        </div>
+        <div class="loginbox">
+            <div class="login-wrap">
+                <h1 class="header fz32">{{ ctitle }}</h1>
+                <form action="#">
+                    <div class="ksd-el-items"><input type="text" v-model="loginUser.account" class="ksd-login-input"  placeholder="请输入账号"></div>
+                    <div class="ksd-el-items"><input type="password" v-model="loginUser.password" class="ksd-login-input" placeholder="请输入密码" @keydown.enter="handleSubmit"></div>
+                    <div class="ksd-el-items pr">
+                        <input type="text" class="ksd-login-input" maxlength="6" v-model="loginUser.code" placeholder="请输入验证码"  @keydown.enter="handleSubmit">
+                        <img v-if="codeURL" class="codeurl"  :src="codeURL" @click="handleGetCapatcha">
+                    </div>
+                    <div class="ksd-el-items"><input type="button" @click.prevent="handleSubmit" class="ksd-login-btn" value="登录"></div>            
+                </form>
+            </div>
+        </div>
+    </div>
+</template>
+
+<script setup>
+import { onMounted, reactive, ref } from 'vue';
+import {useRouter,useRoute} from 'vue-router'
+import {useUserStore} from '@/stores/user.js'
+import {getCapatcha} from '@/api/code.js'
+import KVA from "@/utils/kva.js";
+const userStore = useUserStore();
+const ctitle = ref(import.meta.env.VITE_APP_TITLE)
+
+// 定义一个路由对象
+const router = useRouter()
+// 获取当前路由信息，用于获取当前路径参数，路径，HASH等
+const route = useRoute();
+// 准备接受图像验证码
+const codeURL = ref("");
+// 获取用户输入账号和验证码信息
+const loginUser = reactive({
+    code:"",
+    account:"admin",
+    password:"123456",
+    codeId:""
+})
+
+
+// 根据axios官方文档开始调用生成验证码的接口
+const handleGetCapatcha = async () => {
+    const resp = await getCapatcha()
+    const {baseURL,id} = resp.data
+    codeURL.value = baseURL
+    loginUser.codeId = id
+}
+
+
+// 提交表单
+const  handleSubmit = async () => {
+    // axios.post ---application/json---gin-request.body
+    if(!loginUser.code){
+        KVA.notifyError("请输入验证码")
+        return;
+    }
+    if(!loginUser.account){
+        KVA.notifyError("请输入账号")
+        return;
+    }
+    if(!loginUser.password){
+        KVA.notifyError("请输入密码")
+        return;
+    }
+
+    // 把数据放入到状态管理中
+    try{
+        await userStore.toLogin(loginUser)
+        var path = route.query.path || "/"
+        router.push(path)
+    }catch(e){
+        if(e.code === 60002){
+            loginUser.code = ""
+            handleGetCapatcha()
+        }
+    }
+}
+// 用生命周期去加载生成验证码
+onMounted(() => {
+    handleGetCapatcha()
+})
+
+</script>
+
+<style scoped lang="scss">
+    .pr{position: relative;}
+    .codeurl{position: absolute;top:5px;right:5px;width: 140px;}
+    .ksd-el-items{margin: 15px 0;}
+    .ksd-login-input{border:1px solid #eee;padding:16px 8px;width: 100%;box-sizing: border-box;outline: none;border-radius: 4px;}
+    .ksd-login-btn{border:1px solid #eee;padding:16px 8px;width: 100%;box-sizing: border-box;
+        background:#2196F3;color:#fff;border-radius:6px;cursor: pointer;}
+    .ksd-login-btn:hover{background:#1789e7;}
+    .login-box{
+        display: flex;
+        flex-wrap: wrap;
+        background:#fff;
+        .loginbox{
+            width: 35%;height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            .header{margin-bottom: 30px;}
+            .login-wrap{
+                width: 560px;
+                height: 444px;
+                padding:20px 100px;
+                box-sizing: border-box;
+                border-radius: 8px;
+                box-shadow: 0 0 10px #fafafa;
+                background: rgba(255,255,255,0.6);
+                text-align: center;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+            }
+        }
+        .imgbox{
+            width: 65%;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content:center;
+            position:relative;
+            background: url("../assets/imgs/login_background.jpg");
+            background-size:cover;
+            background-repeat:no-repeat;
+
+            .bgblue{
+                background-image:linear-gradient(to bottom,#4f46e5,#3b82f6);
+                position:absolute;
+                top:0;
+                left:0;
+                bottom:0;
+                right:0;
+                opacity:0.75;
+            }
+        }
+    }
+
+    .circles {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+.circles li {
+    position: absolute;
+    display: block;
+    list-style: none;
+    width: 20px;
+    height: 20px;
+    background: rgba(255, 255, 255, 0.2);
+    animation: animate 25s linear infinite;
+    bottom: -150px;
+}
+.circles li:nth-child(1) {
+    left: 25%;
+    width: 80px;
+    height: 80px;
+    animation-delay: 0s;
+}
+.circles li:nth-child(2) {
+    left: 10%;
+    width: 20px;
+    height: 20px;
+    animation-delay: 2s;
+    animation-duration: 12s;
+}
+.circles li:nth-child(3) {
+    left: 70%;
+    width: 20px;
+    height: 20px;
+    animation-delay: 4s;
+}
+.circles li:nth-child(4) {
+    left: 40%;
+    width: 60px;
+    height: 60px;
+    animation-delay: 0s;
+    animation-duration: 18s;
+}
+.circles li:nth-child(5) {
+    left: 65%;
+    width: 20px;
+    height: 20px;
+    animation-delay: 0s;
+}
+.circles li:nth-child(6) {
+    left: 75%;
+    width: 110px;
+    height: 110px;
+    animation-delay: 3s;
+}
+.circles li:nth-child(7) {
+    left: 35%;
+    width: 150px;
+    height: 150px;
+    animation-delay: 7s;
+}
+.circles li:nth-child(8) {
+    left: 50%;
+    width: 25px;
+    height: 25px;
+    animation-delay: 15s;
+    animation-duration: 45s;
+}
+.circles li:nth-child(9) {
+    left: 20%;
+    width: 15px;
+    height: 15px;
+    animation-delay: 2s;
+    animation-duration: 35s;
+}
+.circles li:nth-child(10) {
+    left: 85%;
+    width: 150px;
+    height: 150px;
+    animation-delay: 0s;
+    animation-duration: 11s;
+}
+@keyframes animate {
+    0% {
+        transform: translateY(0) rotate(0deg);
+        opacity: 1;
+        border-radius: 0;
+    }
+
+    100% {
+        transform: translateY(-1000px) rotate(720deg);
+        opacity: 0;
+        border-radius: 50%;
+    }
+}
+.max-w-md {
+    max-width: 28rem;
+    position:relative;
+    z-index:10;
+}
+</style>
+```
+
+# 04、关于message框修改notify框
+
+封装了notify关于error和success封装如下：
+
+```js
+const KVA = {
+    alert(title,content,options){
+        // 默认值
+        var defaultOptions = {icon:"warning",confirmButtonText:"确定",cancelButtonText:"取消"}
+        // 用户传递和默认值就行覆盖处理
+        var opts = {...defaultOptions,...options}
+        return ElMessageBox.alert(content, title,{
+            //确定按钮文本
+            confirmButtonText: opts.confirmButtonText,
+            // 内容支持html
+            dangerouslyUseHTMLString: true,
+            // 是否支持拖拽
+            draggable: true,
+            // 修改图标
+            type: opts.icon
+        })
+    },
+    confirm(title,content,options){
+        // 默认值
+        var defaultOptions = {icon:"warning",confirmButtonText:"确定",cancelButtonText:"取消"}
+        // 用户传递和默认值就行覆盖处理
+        var opts = {...defaultOptions,...options}
+        // 然后提示
+        return ElMessageBox.confirm(content, title, {
+           //确定按钮文本
+           confirmButtonText: opts.confirmButtonText,
+           //取消按钮文本
+           cancelButtonText: opts.cancelButtonText,
+           // 内容支持html
+           dangerouslyUseHTMLString: true,
+           // 是否支持拖拽
+           draggable: true,
+           // 修改图标
+           type: opts.icon,
+        })
+    },
+    prompt(title,content,options){
+        // 默认值
+        var defaultOptions = {confirmButtonText:"确定",cancelButtonText:"取消"}
+        // 用户传递和默认值就行覆盖处理
+        var opts = {...defaultOptions,...options}
+        return ElMessageBox.prompt(content, title, {
+            //确定按钮文本
+            confirmButtonText: opts.confirmButtonText,
+            //取消按钮文本
+            cancelButtonText: opts.cancelButtonText,
+            // 内容支持html
+            dangerouslyUseHTMLString: true,
+            // 是否支持拖拽
+            draggable: true,
+            // 输入框的正则验证
+            inputPattern: opts.pattern,
+            // 验证的提示内容
+            inputErrorMessage: opts.message||'请输入正确的内容',
+          })
+    },
+    message(message,type,duration=3000){
+        //永远保持只有一个打开状态
+        ElMessage.closeAll()
+        return ElMessage({
+            showClose: true,
+            dangerouslyUseHTMLString: true,
+            message,
+            duration,
+            type,
+        })
+    },
+    success(message){
+        return this.message(message,"success")
+    },
+    warning(message){
+        return this.message(message,"warning")
+    },
+    error(message){
+        return this.message(message,"error")
+    },
+    notifyError(message){//-------------------------------------新增代码
+        return this.notify("提示",message,3000,{type:"error",position:"tr"})
+    },
+    notifySuccess(message){//-------------------------------------新增代码
+        return this.notify("提示",message,3000,{type:"success",position:"tr"})
+    },
+    notify(title,message,duration=3000,options){
+        // 默认值
+        var defaultOptions = {type:"info",position:"tr"}
+        // 用户传递和默认值就行覆盖处理
+        var opts = {...defaultOptions,...options}
+        //永远保持只有一个打开状态
+        ElNotification.closeAll()
+        var positionMap = {
+            "tr":"top-right",
+            "tl":"top-left",
+            "br":"bottom-right",
+            "bl":"bottom-left"
+        }
+        return ElNotification({
+            title,
+            message,
+            duration: duration,
+            type:opts.type,
+            position: positionMap[opts.position||"tr"],
+            dangerouslyUseHTMLString:true
+        })
+    }
+}
+
+export default  KVA
+```
+
+现在已经把项目中所以的KVA.message替换成了KVA.notifyError。改动的位置：Login.vue 
+
+
+
+# 05、Skeleton 骨架屏开发
+
+## 1：认识
+
+在需要等待加载内容的位置设置一个骨架屏，某些场景下比 Loading 的视觉效果更好。
+
+## 2：应用
+
+### 整体控制
+
+```vue
+ <el-skeleton :loading="loading" animated>
+ 	 <template #template>----------------animated=true
+		这里就是骨架屏元素的设置
+     </template>
+     <template #default> ----------------animated=false
+		这里就是原本的内容
+     </template>>
+ </el-skeleton>
+```
+
+- animated : 是否需要动画效果
+- loading : true 显示骨架的效果，false，隐藏骨架的效果。
+
+### 单个控制
+
+```vue
+<el-skeleton/>
+```
+
+默认情况：rows=“3” 其实会显示4个子项出来。
+
+案例如下：
+
+```vue
+<div style="background: #fff;padding:10px;">
+    <el-skeleton :loading="true" animated> 
+        <template #template>
+            <el-skeleton-item variant="h1" />
+        </template>
+        <template #default>
+            <h1>我是一个标题</h1>
+        </template>
+    </el-skeleton> 
+</div>
+```
+
+
+
+## 如何把控制面板的整体页面做成骨架屏幕
+
+1: 局部控制
+
+```vue
+ <el-skeleton :loading="loading" animated>
+ 	 <template #template>----------------animated=true
+		这里就是骨架屏元素的设置
+     </template>
+     <template #default> ----------------animated=false
+		这里就是原本的内容
+     </template>>
+ </el-skeleton>
+
+
+ <el-skeleton :loading="loading" animated>
+ 	 <template #template>----------------animated=true
+		这里就是骨架屏元素的设置
+     </template>
+     <template #default> ----------------animated=false
+		这里就是原本的内容
+     </template>>
+ </el-skeleton>
+
+
+ <el-skeleton :loading="loading" animated>
+ 	 <template #template>----------------animated=true
+		这里就是骨架屏元素的设置
+     </template>
+     <template #default> ----------------animated=false
+		这里就是原本的内容
+     </template>>
+ </el-skeleton>
+
+ <el-skeleton :loading="loading" animated>
+ 	 <template #template>----------------animated=true
+		这里就是骨架屏元素的设置
+     </template>
+     <template #default> ----------------animated=false
+		这里就是原本的内容
+     </template>>
+ </el-skeleton>
+```
+
+
+
+2：学会整体控制（推荐）
+
+```
+<el-skeleton :loading="loading" animated>
+ 	 <template #template>----------------animated=true
+		<div></div>
+        <div></div>
+        <div></div>
+        <div></div>
+        <div></div>
+     </template>
+     <template #default> ----------------animated=false
+		<div></div>
+        <div></div>
+        <div></div>
+        <div></div>
+        <div></div>
+     </template>>
+ </el-skeleton>
+```
+
+案例如下：
+
+```vue
+<template>
+    <el-skeleton animated :loading="true">
+        <template #template>
+            <!--card的骨架屏-->
+            <div class="gva-card-box statebox">
+                <el-row :gutter="12">
+                    <el-col :span="6" :xs="12" v-for="i in 4" :key="i">
+                        <el-card shadow="hover">
+                            <div class="tit"><el-skeleton-item variant="div" style="width: 40%;height: 20px" /></div>
+                            <div class="num">
+                                <el-skeleton-item variant="div" style="width: 60%;height:30px"/>
+                            </div>
+                            <div class="info">
+                                <el-skeleton-item variant="div" style="width: 80%;height:20px"/>
+                            </div>
+                        </el-card>
+                    </el-col>
+                </el-row>
+            </div> 
+            
+            <!--统计报表的骨架-->
+            <div class="gva-card-box">
+                <div class="gva-card">
+                    <div class="card-header"><span ><el-skeleton-item variant="h3" style="width:6%;height:30px;" /></span></div>
+                    <div class="echart-box">
+                        <div class="el-row" style="margin-left: -10px; margin-right: -10px;">
+                            <div class="el-col el-col-24 el-col-xs-24 el-col-sm-18 is-guttered">
+                                <div class="dashboard-line-box">
+                                    <el-skeleton-item variant="h3" style="height:400px;" />
+                                </div>
+                            </div>
+                            <div class="el-col el-col-24 el-col-xs-24 el-col-sm-6 is-guttered"
+                                style="padding-right: 10px; padding-left: 10px;">
+                                <div class="commit-table">
+                                    <div class="commit-table-title"><el-skeleton-item variant="h3" style="width:20%;height:30px;" /> </div>
+                                    <div class="log">
+                                        <div class="log-item" v-for="i in 10" :key="i">
+                                            <el-skeleton-item variant="h3" style="height:22px;" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </template>
+        <template #default>
+            <slot></slot>
+        </template>
+    </el-skeleton>
+</template>
+<script setup>
+import {useMenuTabStore} from '@/stores/menuTab.js'
+const menuTabStore = useMenuTabStore()
+const skLoading  = computed(()=>menuTabStore.skLoading)
+
+onMounted(() => {
+    setTimeout(() => {
+        menuTabStore.skLoading = false;
+    }, 1000)
+})
+</script>
+```
+
+如果未来你的骨架屏，不仅仅是一个地方进行设置，比如：控制面板，导航栏，菜单栏，头部栏，表格区域等等。那么如果你想用一个状态来控制他们所有的骨架屏的显示和隐藏。那么你就必须使用状态管理pinia来进行处理如下：
+
+```js
+import { defineStore } from 'pinia'
+
+export const useSkeletonStore = defineStore('skeleton', {
+  // 定义状态
+  state: () => ({
+    skLoading:true
+  }),
+
+  // 定义动作
+  actions: {
+   /* 设置loading */ 
+   setLoading(loading){
+      this.skLoading = loading
+   }
+  },
+  persist: {
+    key: 'kva-pinia-skeleton',
+    storage: sessionStorage
+  }
+})
+```
+
+
+
+# 06、数字动画
+
+1： 安装
+
+```js
+pnpm install animated-number-vue3
+npm install animated-number-vue3
+yarn add animated-number-vue3
+```
+
+2:在main.js中引入
+
+```js
+import AnimatedNumber from 'animated-number-vue3'
+app.use(AnimatedNumber)
+```
+
+3: 使用
+
+```js
+<AnimatedNumber :from="0" :to="1000"></AnimatedNumber>
+```
+
+### 3.具体使用
+
+> 3.1简单模式
+
+
+
+```ruby
+<AnimatedNumber :from="0" :to="1000"></AnimatedNumber>
+```
+
+> 3.2 slot模式
+
+
+
+```jsx
+//也可使用插槽来自定义界面等操作，option为整个动效包含内容的对象，
+//item里面包含变动的数字，当from和to传的是一个数字时，为单数字动效，此时值必须为number
+<AnimatedNumber :from="0" :to="1000">
+  <template #default="{ option, item }">
+    <h1>{{ item.number }}</h1>
+  </template>
+</AnimatedNumber>
+```
+
+> 3.3 复杂模式 如果想一次性为多个数字做动效，此插件也提供插槽来自定义，from和to的对象key必须为一样，一个开始一个结束的值
+
+
+
+```xml
+<AnimatedNumber :from="{
+  number1:0,
+  number2:0
+}" :to="{
+  number1:100,
+  number2:100
+}">
+  <template #default="{ option, item }">
+    <h1>{{ item.number1 }}</h1>
+    <h1>{{ item.number2 }}</h1>
+  </template>
+</AnimatedNumber>
+```
+
+具体应用如下：
+
+```vue
+<template>
+    <div class="gva-card-box statebox">
+        <el-row :gutter="12">
+            <el-col :span="6" :xs="12">
+                <el-card shadow="hover">
+                    <div class="tit">总销售额</div>
+                    <div class="num">
+                        <AnimatedNumber :from="0" :to="12560" duration="3000">
+                            <template #default="{ option, item }">
+                                <span>￥{{ item.number }}</span>
+                            </template>
+                        </AnimatedNumber>
+                    </div>
+                    <div class="info">
+                        <AnimatedNumber :from="0" :to="8869" duration="3000">
+                            <template #default="{ option, item }">
+                                <span>日销售额：￥{{ item.number }}</span>
+                            </template>
+                        </AnimatedNumber>
+                    </div>
+                </el-card>
+            </el-col>
+            <el-col :span="6" :xs="12">
+                <el-card shadow="hover">
+                    <div class="tit">用户注册</div>
+                    <div class="num">
+                        <AnimatedNumber :from="0" :to="8846" duration="3000" />
+                    </div>
+                    <div class="info">
+                        <AnimatedNumber :from="0" :to="1423" duration="3000">
+                            <template #default="{ option, item }">
+                                <span>日注册量：{{ item.number }}</span>
+                            </template>
+                        </AnimatedNumber>
+                    </div>
+                </el-card>
+            </el-col>
+            <el-col :span="6" :xs="12">
+                <el-card shadow="hover">
+                    <div class="tit">访问量</div>
+                    <div class="num">
+                        <AnimatedNumber :from="0" :to="6560" duration="3000" />
+                    </div>
+                    <div class="info">
+                        <AnimatedNumber :from="0" :to="2423" duration="3000">
+                            <template #default="{ option, item }">
+                                <span>日访问量：{{ item.number }}</span>
+                            </template>
+                        </AnimatedNumber>
+                    </div>
+                </el-card>
+            </el-col>
+            <el-col :span="6" :xs="12">
+                <el-card shadow="hover">
+                    <div class="tit">支付笔数</div>
+                    <div class="num">
+                        <AnimatedNumber :from="0" :to="12589" duration="3000" />
+                    </div>
+                    <div class="info">
+                        <AnimatedNumber :from="0" :to="80" duration="3000">
+                            <template #default="{ option, item }">
+                                <span>转化率：{{ item.number }} %</span>
+                            </template>
+                        </AnimatedNumber>
+                    </div>
+                </el-card>
+            </el-col>
+        </el-row>
+    </div>
+</template>
+<script setup>
+</script>
+<style lang="scss" scoped>
+.statebox {
+    .el-card {
+        padding: 10px;
+        margin-bottom: 5px;
+    }
+
+    .tit {
+        height: 22px;
+        color: rgba(0, 0, 0, .45);
+        font-size: 14px;
+        line-height: 22px;
+    }
+
+    .num {
+        height: 38px;
+        margin-top: 10px;
+        color: rgba(0, 0, 0, .75);
+        font-size: 32px;
+        line-height: 38px;
+        white-space: nowrap;
+        font-weight: bold;
+        text-overflow: ellipsis;
+        word-break: break-all;
+    }
+
+    .info {
+        position: relative;
+        width: 100%;
+        margin-top: 20px;
+    }
+}</style>
+```
+
+
+
+# 07、如何开发保存
+
+- 1： 先要确定你的id是不是数字，并且是不是自增的，如果不是：那就说你代码必须要手动方式去添加和维护。如果是自增，那么你程序是不需要去任何关于id的处理。
+- 2：一定考虑那些字段是不为空，如果不为空的那么这列必须在代码用参数传递或者在项目写默认值
+- 3：如果有些是又默认值。那么可以考虑不用传递。（status）
+- 4： 创建和更新时间看看是否数据区维护还是框架维护了。
+
+
+
+# 08、MD5加盐加密
+
+```go
+package utils
+
+import (
+	"crypto/md5"
+	"encoding/hex"
+)
+
+// 参数：需要加密的字符串
+func getMd5(str string) string {
+	h := md5.New()
+	h.Write([]byte(str))
+	return hex.EncodeToString(h.Sum(nil))
+}
+
+// md5加密
+func Md5(str string) string {
+	return getMd5(getMd5(PWD_SALT + str + PWD_SALT))
+}
+
+//@author: [piexlmax](https://github.com/piexlmax)
+//@function: MD5V
+//@description: md5加密
+//@param: str []byte
+//@return: string
+
+func MD5V(str []byte, b ...byte) string {
+	h := md5.New()
+	h.Write(str)
+	return hex.EncodeToString(h.Sum(b))
+}
+
+```
+
+注意加密以后，那么就必须考虑到login的时候要加密比对
+
+```go
+// 登录的接口处理
+func (api *LoginApi) ToLogined(c *gin.Context) {
+	type LoginParam struct {
+		Account  string
+		Code     string
+		CodeId   string
+		Password string
+	}
+
+	// 1：获取用户在页面上输入的账号和密码开始和数据库里数据进行校验
+	param := LoginParam{}
+	err2 := c.ShouldBindJSON(&param)
+	if err2 != nil {
+		response.Fail(60002, "参数绑定有误", c)
+		return
+	}
+
+	if len(param.Code) == 0 {
+		response.Fail(60002, "请输入验证码", c)
+		return
+	}
+
+	if len(param.CodeId) == 0 {
+		response.Fail(60002, "验证码获取失败", c)
+		return
+	}
+
+	// 开始校验验证码是否正确
+	verify := store.Verify(param.CodeId, param.Code, true)
+	if !verify {
+		response.Fail(60002, "你输入的验证码有误!!", c)
+		return
+	}
+
+	inputAccount := param.Account
+	inputPassword := param.Password
+
+	if len(inputAccount) == 0 {
+		response.Fail(60002, "请输入账号", c)
+		return
+	}
+
+	if len(inputPassword) == 0 {
+		response.Fail(60002, "请输入密码", c)
+		return
+	}
+
+	dbUser, err := sysUserService.GetUserByAccount(inputAccount)
+	if err != nil {
+		response.Fail(60002, "你输入的账号和密码有误", c)
+		return
+	}
+
+	// 这个时候就判断用户输入密码和数据库的密码是否一致
+	// inputPassword = utils.Md5(123456) = 2ec9f77f1cde809e48fabac5ec2b8888
+	// dbUser.Password = 2ec9f77f1cde809e48fabac5ec2b8888
+	if dbUser != nil && dbUser.Password == utils.Md5(inputPassword) {//--=--------------这里是修改的代码
+		token := api.generaterToken(c, dbUser)
+		// 根据用户id查询用户的角色
+		roles := [2]map[string]any{}
+		m1 := map[string]any{"id": 1, "name": "超级管理员", "code": "admin"}
+		m2 := map[string]any{"id": 2, "name": "财务", "code": "visitor"}
+		roles[0] = m1
+		roles[1] = m2
+		// 根据用户id查询用户的角色的权限
+		permissions := [2]map[string]any{}
+		pm1 := map[string]any{"code": 10001, "name": "保存用户"}
+		pm2 := map[string]any{"code": 20001, "name": "删除用户"}
+		permissions[0] = pm1
+		permissions[1] = pm2
+
+		response.Ok(map[string]any{"user": dbUser, "token": token, "roles": roles, "permissions": permissions}, c)
+	} else {
+		response.Fail(60002, "你输入的账号和密码有误", c)
+	}
+}
+
+```
+
+
+
+# 系统变更
+
+1： 把前端移动项目 web目录
+
+2： 新建一个sql目录
+
+3： 读取表的信息
+
+````sql
+```sql
+-- 1. 根据库名获取所有表的信息
+-- 使用以下SQL语句来获取指定数据库中所有表的信息：
+SELECT * FROM information_schema.`TABLES` WHERE TABLE_SCHEMA='kva-admin-db';
+-- 其中，“your_database”是你要查询的数据库名称。这条语句将返回一个包含所有表信息的数据表。
+
+-- 2. 根据库名获取所有表名称和表说明
+-- 使用以下SQL语句来获取指定数据库中所有表的名称和注释：
+
+SELECT TABLE_NAME, TABLE_COMMENT FROM information_schema.`TABLES` WHERE TABLE_SCHEMA='kva-admin-db';
+
+-- 这条语句将返回一个包含表名和注释的数据表。
+-- 3. 根据库名获取所有的字段信息
+-- 使用以下SQL语句来获取指定数据库中所有表的所有字段信息：
+
+SELECT 
+	TABLE_SCHEMA AS 'schema',
+	TABLE_NAME AS 'tablename',
+	COLUMN_NAME AS 'cname',
+	ORDINAL_POSITION AS 'position',
+	COLUMN_DEFAULT AS 'cdefault',
+	IS_NULLABLE AS 'nullname',
+	DATA_TYPE AS 'dataType',
+	CHARACTER_MAXIMUM_LENGTH AS 'maxLen',
+	NUMERIC_PRECISION AS 'precision',
+	NUMERIC_SCALE AS 'scalename',
+	COLUMN_TYPE AS 'ctype',
+	COLUMN_KEY AS 'ckey',
+	EXTRA AS 'extra',
+	COLUMN_COMMENT AS 'comment'
+FROM information_schema.`COLUMNS`
+WHERE TABLE_SCHEMA='kva-admin-db'
+ORDER BY TABLE_NAME, ORDINAL_POSITION;
+
+-- 这条语句将返回一个包含所有字段信息的数据表。
+-- 4. 根据库名获取所有的库和表字段的基本信息
+-- 使用以下SQL语句来获取指定数据库中所有表和字段的基本信息：
+
+SELECT C.TABLE_SCHEMA AS 'schema',
+T.TABLE_NAME AS 'tablename',
+T.TABLE_COMMENT AS 'tablecomment',
+C.COLUMN_NAME AS 'columnname',
+C.COLUMN_COMMENT AS 'columncomment',
+C.ORDINAL_POSITION AS 'position',
+C.COLUMN_DEFAULT AS 'columndefault',
+C.IS_NULLABLE AS 'nullname',
+C.DATA_TYPE AS 'dataType',
+C.CHARACTER_MAXIMUM_LENGTH AS 'maxlen',
+C.NUMERIC_PRECISION AS 'precision',
+C.NUMERIC_SCALE AS 'scale',
+C.COLUMN_TYPE AS 'ctype',
+C.COLUMN_KEY AS 'ckey',
+C.EXTRA AS 'extra'
+FROM information_schema.`TABLES` T
+LEFT JOIN information_schema.`COLUMNS` C ON T.TABLE_NAME=C.TABLE_NAME AND T.TABLE_SCHEMA=C.TABLE_SCHEMA
+WHERE T.TABLE_SCHEMA='kva-admin-db'
+ORDER BY C.TABLE_NAME, C.ORDINAL_POSITION;
+```
+````
+
+4: 在utils新建目录adr
+
+ [AES.go](C:\Users\zxc\go\xkginweb\utils\adr\AES.go)  [BASE64.go](C:\Users\zxc\go\xkginweb\utils\adr\BASE64.go)  [DES.go](C:\Users\zxc\go\xkginweb\utils\adr\DES.go)  [MD5.go](C:\Users\zxc\go\xkginweb\utils\adr\MD5.go)  [RSA.go](C:\Users\zxc\go\xkginweb\utils\adr\RSA.go) 
+
+5： 数据载体的划分
+
+# 9、数据载体
+
+pojo
+
+- model、entity、pojo
+- po、context
+- vo —-返回
+
+
+
+# 10、后端校验validate
+
+官网：更多请查看  https://github.com/gookit/validate
+
+1: 安装验证框架
+
+```go
+go get github.com/gookit/validate
+```
+
+2:  验证三部曲
+
+结构体可以实现 3 个接口方法，方便做一些自定义：
+
+- `ConfigValidation(v *Validation)` 将在创建验证器实例后调用
+- `Messages() map[string]string` 可以自定义==验证器==错误消息
+- `Translates() map[string]string` 可以自定义字段映射/翻译
+
+3: 验证
+
+验证结构体增加验证器
+
+```go
+type UserForm struct {
+  Name     string    `validate:"required|minLen:7"`
+  Email    string    `validate:"email" message:"email is invalid"`
+  Age      int       `validate:"required|int|min:1|max:99" message:"int:age must int| min: age min value is 1"`
+  CreateAt int       `validate:"min:1"`
+  Safe     int       `validate:"-"`
+  UpdateAt time.Time `validate:"required"`
+  Code     string    `validate:"customValidator"` // 使用自定义验证器
+}
+```
+
+开始验证结构体
+
+```go
+// 创建 Validation 实例
+v := validate.Struct(u)
+ if v.Validate() { // 验证成功
+    // do something ...
+} else {
+    fmt.Println(v.Errors) // 所有的错误消息
+    fmt.Println(v.Errors.One()) // 返回随机一条错误消息
+    fmt.Println(v.Errors.Field("Name")) // 返回该字段的错误消息
+}
+```
+
+
+
+| 验证器/别名                               | 描述信息                                                     |
+| :---------------------------------------- | :----------------------------------------------------------- |
+| `required`                                | 字段为必填项，值不能为空                                     |
+| `required_if/requiredIf`                  | `required_if:anotherfield,value,...` 如果其它字段 *anotherField* 为任一值 *value* ，则此验证字段必须存在且不为空。 |
+| `required_unless/requiredUnless`          | `required_unless:anotherfield,value,...` 如果其它字段 *anotherField* 不等于任一值 *value* ，则此验证字段必须存在且不为空。 |
+| `required_with/requiredWith`              | `required_with:foo,bar,...` 在其他任一指定字段出现时，验证的字段才必须存在且不为空 |
+| `required_with_all/requiredWithAll`       | `required_with_all:foo,bar,...` 只有在其他指定字段全部出现时，验证的字段才必须存在且不为空 |
+| `required_without/requiredWithout`        | `required_without:foo,bar,...` 在其他指定任一字段不出现时，验证的字段才必须存在且不为空 |
+| `required_without_all/requiredWithoutAll` | `required_without_all:foo,bar,...` 只有在其他指定字段全部不出现时，验证的字段才必须存在且不为空 |
+| `-/safe`                                  | 标记当前字段是安全的，无需验证                               |
+| `int/integer/isInt`                       | 检查值是 `intX` `uintX` 类型，同时支持大小检查 `"int"` `"int:2"` `"int:2,12"` |
+| `uint/isUint`                             | 检查值是 `uintX` 类型(`value >= 0`)                          |
+| `bool/isBool`                             | 检查值是布尔字符串(`true`: "1", "on", "yes", "true", `false`: "0", "off", "no", "false"). |
+| `string/isString`                         | 检查值是字符串类型，同时支持长度检查 `"string"` `"string:2"` `"string:2,12"` |
+| `float/isFloat`                           | 检查值是 float(`floatX`) 类型                                |
+| `slice/isSlice`                           | 检查值是 slice 类型(`[]intX` `[]uintX` `[]byte` `[]string` 等). |
+| `in/enum`                                 | 检查值()是否在给定的枚举列表(`[]string`, `[]intX`, `[]uintX`)中 |
+| `not_in/notIn`                            | 检查值不是在给定的枚举列表中                                 |
+| `contains`                                | 检查输入值(`string` `array/slice` `map`)是否包含给定的值     |
+| `not_contains/notContains`                | 检查输入值(`string` `array/slice` `map`)是否不包含给定值     |
+| `string_contains/stringContains`          | 检查输入的 `string` 值是否不包含给定sub-string值             |
+| `starts_with/startsWith`                  | 检查输入的 `string` 值是否以给定sub-string开始               |
+| `ends_with/endsWith`                      | 检查输入的 `string` 值是否以给定sub-string结束               |
+| `range/between`                           | 检查值是否为数字且在给定范围内                               |
+| `max/lte`                                 | 检查输入值小于或等于给定值                                   |
+| `min/gte`                                 | 检查输入值大于或等于给定值(for `intX` `uintX` `floatX`)      |
+| `eq/equal/isEqual`                        | 检查输入值是否等于给定值                                     |
+| `ne/notEq/notEqual`                       | 检查输入值是否不等于给定值                                   |
+| `lt/lessThan`                             | 检查值小于给定大小(use for `intX` `uintX` `floatX`)          |
+| `gt/greaterThan`                          | 检查值大于给定大小(use for `intX` `uintX` `floatX`)          |
+| `int_eq/intEq/intEqual`                   | 检查值为int且等于给定值                                      |
+| `len/length`                              | 检查值长度等于给定大小(use for `string` `array` `slice` `map`). |
+| `min_len/minLen/minLength`                | 检查值的最小长度是给定大小                                   |
+| `max_len/maxLen/maxLength`                | 检查值的最大长度是给定大小                                   |
+| `email/isEmail`                           | 检查值是Email地址字符串                                      |
+| `regex/regexp`                            | 检查该值是否可以通过正则验证                                 |
+| `arr/array/isArray`                       | 检查值是数组`array`类型                                      |
+| `map/isMap`                               | 检查值是 `map` 类型                                          |
+| `strings/isStrings`                       | 检查值是字符串切片类型(`[]string`)                           |
+| `ints/isInts`                             | 检查值是`int` slice类型(only allow `[]int`)                  |
+| `eq_field/eqField`                        | 检查字段值是否等于另一个字段的值                             |
+| `ne_field/neField`                        | 检查字段值是否不等于另一个字段的值                           |
+| `gte_field/gtField`                       | 检查字段值是否大于另一个字段的值                             |
+| `gt_field/gteField`                       | 检查字段值是否大于或等于另一个字段的值                       |
+| `lt_field/ltField`                        | 检查字段值是否小于另一个字段的值                             |
+| `lte_field/lteField`                      | 检查字段值是否小于或等于另一个字段的值                       |
+| `file/isFile`                             | 验证是否是上传的文件                                         |
+| `image/isImage`                           | 验证是否是上传的图片文件，支持后缀检查                       |
+| `mime/mimeType/inMimeTypes`               | 验证是否是上传的文件，并且在指定的MIME类型中                 |
+| `date/isDate`                             | 检查字段值是否为日期字符串。（只支持几种常用的格式） eg `2018-10-25` |
+| `gt_date/gtDate/afterDate`                | 检查输入值是否大于给定的日期字符串                           |
+| `lt_date/ltDate/beforeDate`               | 检查输入值是否小于给定的日期字符串                           |
+| `gte_date/gteDate/afterOrEqualDate`       | 检查输入值是否大于或等于给定的日期字符串                     |
+| `lte_date/lteDate/beforeOrEqualDate`      | 检查输入值是否小于或等于给定的日期字符串                     |
+| `hasWhitespace`                           | 检查字符串值是否有空格                                       |
+| `ascii/ASCII/isASCII`                     | 检查值是ASCII字符串                                          |
+| `alpha/isAlpha`                           | 验证值是否仅包含字母字符                                     |
+| `alpha_num/alphaNum/isAlphaNum`           | 验证是否仅包含字母、数字                                     |
+| `alpha_dash/alphaDash/isAlphaDash`        | 验证是否仅包含字母、数字、破折号（ - ）以及下划线（ _ ）     |
+| `multi_byte/multiByte/isMultiByte`        | 检查值是多字节字符串                                         |
+| `base64/isBase64`                         | 检查值是Base64字符串                                         |
+| `dns_name/dnsName/DNSName/isDNSName`      | 检查值是DNS名称字符串                                        |
+| `data_uri/dataURI/isDataURI`              | Check value is DataURI string.                               |
+| `empty/isEmpty`                           | 检查值是否为空                                               |
+| `hex_color/hexColor/isHexColor`           | 检查值是16进制的颜色字符串                                   |
+| `hexadecimal/isHexadecimal`               | 检查值是十六进制字符串                                       |
+| `json/JSON/isJSON`                        | 检查值是JSON字符串。                                         |
+| `lat/latitude/isLatitude`                 | 检查值是纬度坐标                                             |
+| `lon/longitude/isLongitude`               | 检查值是经度坐标                                             |
+| `mac/isMAC`                               | 检查值是MAC字符串                                            |
+| `num/number/isNumber`                     | 检查值是数字字符串. `>= 0`                                   |
+| `cn_mobile/cnMobile/isCnMobile`           | 检查值是中国11位手机号码字符串                               |
+| `printableASCII/isPrintableASCII`         | Check value is PrintableASCII string.                        |
+| `rgbColor/RGBColor/isRGBColor`            | 检查值是RGB颜色字符串                                        |
+| `full_url/fullUrl/isFullURL`              | 检查值是完整的URL字符串(*必须以http,https开始的URL*).        |
+| `url/URL/isURL`                           | 检查值是URL字符串                                            |
+| `ip/IP/isIP`                              | 检查值是IP（v4或v6）字符串                                   |
+| `ipv4/isIPv4`                             | 检查值是IPv4字符串                                           |
+| `ipv6/isIPv6`                             | 检查值是IPv6字符串                                           |
+| `cidr/CIDR/isCIDR`                        | 检查值是 CIDR 字符串                                         |
+| `CIDRv4/isCIDRv4`                         | 检查值是 CIDR v4 字符串                                      |
+| `CIDRv6/isCIDRv6`                         | 检查值是 CIDR v6 字符串                                      |
+| `uuid/isUUID`                             | 检查值是UUID字符串                                           |
+| `uuid3/isUUID3`                           | 检查值是UUID3字符串                                          |
+| `uuid4/isUUID4`                           | 检查值是UUID4字符串                                          |
+| `uuid5/isUUID5`                           | 检查值是UUID5字符串                                          |
+| `filePath/isFilePath`                     | 检查值是一个存在的文件路径                                   |
+| `unixPath/isUnixPath`                     | 检查值是Unix Path字符串                                      |
+| `winPath/isWinPath`                       | 检查值是Windows路径字符串                                    |
+| `isbn10/ISBN10/isISBN10`                  | 检查值是ISBN10字符串                                         |
+| `isbn13/ISBN13/isISBN13`                  | 检查值是ISBN13字符串                                         |
+
+
+
+# 11 、 关于逻辑删除得问题和处理
+
+## 01、gorm默认机制
+
+### gorm.Model
+
+GORM 定义一个 `gorm.Model` 结构体，其包括字段 `ID`、`CreatedAt`、`UpdatedAt`、`DeletedAt ` 。
+
+- 其中这里得deletedAt就是用于逻辑删除控制得字段，如果null 就代表没有删除，如果有时间就说你执行过delete from 才会把删除时写入到数据库表中
+- 如果有字段，未来做任何得查询都自动跟上条件deletedAt is null 
+
+
+
+### 修改逻辑删除的默认规则
+
+如果你先修改默认的规则，从时间变成0/1这种方式，你必须如下执行
+
+1: 先安装组件
+
+```go
+gorm.io/plugin/soft_delete
+```
+
+2: 把deletedAt删掉，修改如下：
+
+IsDeleted soft_delete.DeletedAt `gorm:"softDelete:flag,DeletedAtField:DeletedAt;default:0" json:"isDeleted"`
+
+```go
+package global
+
+import (
+	"gorm.io/plugin/soft_delete"
+	"time"
+)
+
+type GVA_MODEL struct {
+	ID        uint      `gorm:"primarykey;comment:主键ID" json:"id"` // 主键ID
+	CreatedAt time.Time `gorm:"type:datetime(0);autoCreateTime;comment:创建时间" json:"createdAt"`
+	UpdatedAt time.Time `gorm:"type:datetime(0);autoUpdateTime;comment:更新时间" json:"updatedAt"`
+	//DeletedAt gorm.DeletedAt `gorm:"index;comment:删除时间" json:"-"` // 删除时间
+	IsDeleted soft_delete.DeletedAt `gorm:"softDelete:flag,DeletedAtField:DeletedAt;default:0" json:"isDeleted"`
+}
+
+```
+
+前面的那些步骤和流程一个都不能省去，比如：注册表
+
+```go
+package orm
+
+import (
+	"xkginweb/global"
+	bbs2 "xkginweb/model/entity/bbs"
+	"xkginweb/model/entity/jwt"
+	sys2 "xkginweb/model/entity/sys"
+	user2 "xkginweb/model/entity/user"
+	video2 "xkginweb/model/entity/video"
+)
+
+func RegisterTable() {
+	db := global.KSD_DB
+	// 注册和声明model
+	db.AutoMigrate(user2.XkUser{})
+	db.AutoMigrate(user2.XkUserAuthor{})
+	// 系统用户，角色，权限表
+	db.AutoMigrate(sys2.SysApis{})
+	db.AutoMigrate(sys2.SysMenus{})
+	db.AutoMigrate(sys2.SysRoleApis{})
+	db.AutoMigrate(sys2.SysRoleMenus{})
+	db.AutoMigrate(sys2.SysRoles{})
+	db.AutoMigrate(sys2.SysUserRoles{})
+	db.AutoMigrate(sys2.SysUser{})
+	// 视频表
+	db.AutoMigrate(video2.XkVideo{})
+	db.AutoMigrate(video2.XkVideoCategory{})
+	db.AutoMigrate(video2.XkVideoChapterLesson{})
+	// 社区
+	db.AutoMigrate(bbs2.XkBbs{})
+	db.AutoMigrate(bbs2.BbsCategory{})
+
+	// 声明一下jwt模型
+	db.AutoMigrate(jwt.JwtBlacklist{})
+}
+
+```
+
+
+
+3：然后重启查看效果即可。
+
+- 其中这里得isDeleted就是用于逻辑删除控制得字段，如果0就代表没有删除，如果是1就是删除
+- 未来你执行任何的删除操作就变成update table set is_deleted = 1,update_time = now() where id = 1
+- 未来做任何得查询都自动跟上条件is_deleted = 0
+
+
+
+4: 我要把删除和未删除全部查询出来？
+
+往往在做后台管理系统的时候，你就必须要把删除和未删除全部查询出来。那么你就必须加上：.Unscoped() 来进行处理这样会把默认机制打破。不在跟已删除过滤。如下：
+
+```go
+// 查询分页
+func (service *SysUserService) LoadSysUserPage(info request.PageInfo) (list interface{}, total int64, err error) {
+	// 获取分页的参数信息
+	limit := info.PageSize
+	offset := info.PageSize * (info.Page - 1)
+
+	// 准备查询那个数据库表
+	db := global.KSD_DB.Model(&sys.SysUser{})
+
+	// 准备切片帖子数组
+	var sysUserList []sys.SysUser
+
+	// 加条件
+	if info.Keyword != "" {
+		db = db.Where("(username like ? or account like ? )", "%"+info.Keyword+"%", "%"+info.Keyword+"%")
+	}
+
+	// 排序默时间降序降序
+	db = db.Order("created_at desc")
+
+	// 查询中枢
+	err = db.Unscoped().Count(&total).Error
+	if err != nil {
+		return sysUserList, total, err
+	} else {
+		// 执行查询
+		err = db.Unscoped().Limit(limit).Offset(offset).Find(&sysUserList).Error
+	}
+
+	// 结果返回
+	return sysUserList, total, err
+}
+```
+
+
+
+
+
+# 12：查询用户的角色
+
+1：你要把所有的角色查询出来。
+
+- 放入表格
+- 放入下拉框
+
+2：  查询用户的角色
+
+3： 把查询用户角色和所有角色进行碰撞，如果一致就选中
+
+​	
+
+## 为什么用户角色喜欢弄一个中间表来维护
+
+- 一对一的关系
+
+| userid       | username | roleid | roleName   |
+| ------------ | -------- | ------ | ---------- |
+| 1            | 飞哥     | 1      | 超级管理员 |
+| 2            | 小玉     | 2      | 财务       |
+| 一对多的关系 |          |        |            |
+
+| userid | username | roleid | roleName            |
+| ------ | -------- | ------ | ------------------- |
+| 1      | 飞哥     | 1,3    | 超级管理员,开发人员 |
+| 2      | 小玉     | 2,3    | 财务,开发人员       |
+
+那为什么不用上面的方式来维护。因为如果我们变更角色名字的。那么就不方便角色用户数据的维护
+
+
+
+### 真正的设计
+
+| userId | userName |      |
+| ------ | -------- | ---- |
+| 1      | 飞哥     | 1    |
+| 2      | 小玉     |      |
+| 3      | 小伟     |      |
+|        |          |      |
+|        |          |      |
+
+| roleId | roleName   |      |
+| ------ | ---------- | ---- |
+| 1      | 超级管理员 |      |
+| 2      | 财务       |      |
+| 3      | 开发人员   |      |
+
+map概念
+
+sys_user_roles
+
+| userId | roleid |      |
+| ------ | ------ | ---- |
+| 1      | 3      |      |
+| 1      | 1      |      |
+| 2      | 2      |      |
+| 2      | 3      |      |
+| 3      | 3      |      |
+|        |        |      |
+|        |        |      |
+|        |        |      |
+
+
+
+
+
+
+
+## 授予用户角色
+
+- 把roleids全部拿到
+- 并且拿到用户的id
+- 然后调用授予角色的接口
+  - 根据用户id删除对应角色
+  - 然后把新角色全部重新保存进sys_user_roles
+
+```
+var users = []User{{Name: "jinzhu1"}, {Name: "jinzhu2"}, {Name: "jinzhu3"}}
+db.Create(&users)
+
+var sysUserRoles =  []SysUserRoles{{UserId: 1,RoleId:1},{UserId: 1,RoleId:2},{UserId: 1,RoleId:3}}
+db.Create(&users)
+```
+
+
+
+
+
+# 13、事务的简单认识
+
+对于要把事务在实际中使用好，需要了解事务的特性。
+
+事务的四大特性主要是：原子性（Atomicity）、一致性（Consistency）、隔离性（Isolation）、持久性（Durability）。
+
+**一、事务的四大特性**
+
+**1.1** **原子性（Atomicity）**
+
+原子性是指事务是一个不可分割的工作单位，事务中的操作要么全部成功，要么全部失败。比如在同一个事务中的SQL语句，要么全部执行成功，要么全部执行失败。
+
+
+
+```mysql
+begin transaction;
+    update account set money = money-100 where name = '张三';
+    update account set money = money+100 where name = '李四';
+commit transaction;
+```
+
+**1.2** **一致性（Consistency）**
+
+官网上事务一致性的概念是：事务必须使数据库从一个一致性状态变换到另外一个一致性状态。
+
+换一种方式理解就是：事务按照预期生效，数据的状态是预期的状态。
+
+举例说明：张三向李四转100元，转账前和转账后的数据是正确的状态，这就叫一致性，如果出现张三转出100元，李四账号没有增加100元这就出现了数据错误，就没有达到一致性。
+
+**1.3** **隔离性（Isolation）**
+
+事务的隔离性是多个用户并发访问数据库时，数据库为每一个用户开启的事务，不能被其他事务的操作数据所干扰，多个并发事务之间要相互隔离。
+
+**1.4** **持久性（Durability）**
+
+持久性是指一个事务一旦被提交，它对数据库中数据的改变就是永久性的，接下来即使数据库发生故障也不应该对其有任何影响。
+
+例如我们在使用JDBC操作数据库时，在提交事务方法后，提示用户事务操作完成，当我们程序执行完成直到看到提示后，就可以认定事务以及正确提交，即使这时候数据库出现了问题，也必须要将我们的事务完全执行完成，否则就会造成我们看到提示事务处理完毕，但是数据库因为故障而没有执行事务的重大错误。
+
+
+
+## 什么情况下会用到事务呢？
+
+在开发中如果，牵涉到业务执行方法，处理的写入（insert.update,delete）的时候，如果存在多种写入，你要保证他们执行顺序和整体性你就必须靠事务。因为事务可以把这些写入指令全部放入到一个事务队列中，来进行操作。然后在操作的过程中，如果写入这些sql语言，会执行sql语句指令，但是不并不会马上写入到磁盘数据中。暂时只会全部在内存进行记录和处理。只有触发到commit指令的时候，全会进行比对然后开始写入到数据库表中，如果遇到的rollback就会之前执行的sql全部回滚掉不去持久化数据库表中。
+
+
+
+
+
+# 14、 gorm框架更新0值失败的问题
+
+参考文献：https://gorm.io/zh_CN/docs/update.html
+
+默认情况下：gorm框架更新结构体的时候，只能更新那些非0列。如果你更新为0的列那么久必须使用map
+
+解决方案：
+
+1：直接把0该换其它的状态。（一般不会使用）
+
+2:   把结构体转化成map的方式来进行处理即可
+
+1: 安装组件
+
+```go
+go get github.com/fatih/structs
+```
+
+2: 定义结构体
+
+```go
+package model
+
+type SysUser struct {
+	ID        uint   `json:"ID" structs:"omitnested"`
+	UUID      string `json:"uuid" structs:"omitnested" ` // 用户UUID
+	Slat      string `json:"slat" structs:"omitnested" ` // 用户登录密码
+	Enable    int    `json:"enable" structs:"enable" `
+	Account   string `json:"account" structs:"account"`    // 用户登录名
+	Password  string `json:"password" structs:"password" ` // 密码加盐
+	Username  string `json:"username" structs:"username" ` // 用户昵称
+	Avatar    string `json:"avatar" structs:"avatar" `     // 用户头像
+	Phone     string `json:"phone" structs:"phone" `       // 用户手机号
+	Email     string `json:"email" structs:"email" `
+	IsDeleted int    `json:"email" structs:"is_deleted"`
+}
+
+```
+
+3: 写个测试
+
+```go
+package main
+
+import (
+	"fmt"
+	"github.com/fatih/structs"
+	"strutstomap/model"
+)
+
+func main() {
+
+	sysUser := model.SysUser{}
+	sysUser.ID = 1
+	sysUser.UUID = "1111"
+	sysUser.Slat = "1111"
+	sysUser.Avatar = "XXXXX"
+	sysUser.Email = "xxxx@qq.com"
+	sysUser.Username = "飞飞"
+	sysUser.Account = "feige"
+	sysUser.IsDeleted = 0
+
+	fmt.Println("user to map：", structs.Map(sysUser))
+
+}
+
+```
+
+可以看到id,uuid,slat被忽略掉了。而增加structs的列都会按照你指定的列名作为map的key
+
+
+
+
+
+
+
+# 15、泛型的应用
+
+问题：在项目中，我们定义service其实你会发现基本单表的操作80%~90%的操作几乎一摸一样，只是更改结构体。其他并没变化。但是你在开发时候，如果你不考虑到封装，其实就必须每个表就对应结构体，对应service然后调用
+
+- Create
+- Updates
+- Delete
+- First
+- Find
+
+那么有有一种方式可以将其这些基本CURD单表操作全部进行封装，给与模块开发提供遍历。
+
+在java有很多持久层框架，用最多的呢是mybati，这里的mybatis等价于gorm框架.
+
+在java中有封装注著名的框架：mybatis-plus。它其实就在单表操作层面全部进行封装，单表操作基本全部进行封装和简化。
+
+## 封装知识点
+
+- 继承
+- 泛型
+- 反射
+
+## 继承你的理解是什么？
+
+- 继承其实就拥有父类方法和属性（必须大开头方法和属性名字，这种方法和属性就公开，也就可以被子类继承）
+- 继承本质特点:   不劳而获，职责分担
+
+## 封装思维
+
+- 方法封装 —————————–package
+- 结构体封装（父类）————–自动
+
+
+
+
+
+## 什么时候用继承
+
+如果在开发中存在多个结构体，有通用共用的方法的时候，可以考虑把这类方法用父类来尽心封装。找每个结构方法中很多的代码片段会经常重复的编写，你可以把这些重复的代码片段用父类来完成。
+
+
+
+
+
+# 16、实现菜单管理和处理
+
+![image-20230819201422971](images/image-20230819201422971.png)
+
+![image-20230819201649380](images/image-20230819201649380.png)
+
+1： 表的设计
+
+```sql
+CREATE TABLE `sys_menus` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `created_at` datetime DEFAULT NULL COMMENT '创建时间',
+  `updated_at` datetime DEFAULT NULL COMMENT '更新时间',
+  `parent_id` bigint(20) DEFAULT NULL COMMENT '父菜单ID',
+  `path` varchar(191) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '路由path',
+  `name` varchar(191) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '路由name 用于国际化处理',
+  `hidden` tinyint(1) DEFAULT NULL COMMENT '是否在列表隐藏',
+  `component` varchar(191) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '对应前端文件路径',
+  `sort` bigint(20) DEFAULT NULL COMMENT '排序标记',
+  `icon` varchar(191) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '对应前端文件路径',
+  `is_deleted` bigint(20) unsigned DEFAULT '0',
+  `title` varchar(191) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '菜单名称',
+  PRIMARY KEY (`id`) USING BTREE
+) ENGINE=InnoDB AUTO_INCREMENT=38 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC COMMENT='菜单表';
+```
+
+2: 写查询
+
+- 先把根节点查询出来，然后在遍历查询对应子节点
+- 把所有的数据都查询出来，然后在来进行数据遍历和分配（推荐）
+
+3：定义结构体
+
+```go
+package sys
+
+import (
+	"xkginweb/global"
+)
+
+type SysMenus struct {
+	global.GVA_MODEL
+	ParentId  uint   `json:"parentId" gorm:"comment:父菜单ID"`      // 父菜单ID
+	Path      string `json:"path" gorm:"comment:路由path"`         // 路由path
+	Title     string `json:"title" gorm:"comment:菜单名称"`          // 菜单名称
+	Name      string `json:"name" gorm:"comment:路由name 用于国际化处理"` // 路由name 用于国际化处理
+	Hidden    bool   `json:"hidden" gorm:"comment:是否在列表隐藏"`      // 是否在列表隐藏
+	Component string `json:"component" gorm:"comment:对应前端文件路径"`  // 对应前端文件路径
+	Sort      int    `json:"sort" gorm:"comment:排序标记"`           // 排序标记
+	Icon      string `json:"component" gorm:"comment:对应前端文件路径"`  // 对应前端文件路径
+	// 忽略该字段，- 表示无读写，-:migration 表示无迁移权限，-:all 表示无读写迁移权限
+	Children []*SysMenus `gorm:"-" json:"children"`
+	TopObj   *SysMenus   `gorm:"-" json:"-"`
+}
+
+func (s *SysMenus) TableName() string {
+	return "sys_menus"
+}
+
+```
+
+4: 定义service
+
+```go
+func (service *SysMenusService) FinMenus(keyword string) (sysMenus []*sys.SysMenus, err error) {
+	db := global.KSD_DB.Unscoped().Order("sort asc")
+	if len(keyword) > 0 {
+		db.Where("title like ?", "%"+keyword+"%")
+	}
+	err = db.Find(&sysMenus).Error
+	return sysMenus, err
+}
+
+/**
+*   开始把数据进行编排--递归
+*   Tree(all,0)
+ */
+func (service *SysMenusService) Tree(allSysMenus []*sys.SysMenus, parentId uint) []*sys.SysMenus {
+	var nodes []*sys.SysMenus
+	for _, dbMenu := range allSysMenus {
+		if dbMenu.ParentId == parentId {
+			childrensMenu := service.Tree(allSysMenus, dbMenu.ID)
+			if len(childrensMenu) > 0 {
+				dbMenu.Children = append(dbMenu.Children, childrensMenu...)
+			}
+			nodes = append(nodes, dbMenu)
+		}
+	}
+	return nodes
+}
+
+```
+
+5：定义路由 api/ [sys_menus.go](C:\Users\zxc\go\xkginweb\api\v1\sys\sys_menus.go) 
+
+```go
+// 查询菜单
+func (api *SysMenuApi) FindMenus(c *gin.Context) {
+	keyword := c.Query("keyword")
+	sysMenus, err := sysMenuService.FinMenus(keyword)
+	if err != nil {
+		response.FailWithMessage("获取失败", c)
+		return
+	}
+	response.Ok(sysMenuService.Tree(sysMenus, 0), c)
+}
+
+```
+
+6: 分配路由地址 router/sys/ [sys_memus.go](C:\Users\zxc\go\xkginweb\router\sys\sys_memus.go) 
+
+```go
+package sys
+
+import (
+	"github.com/gin-gonic/gin"
+	v1 "xkginweb/api/v1"
+)
+
+// 登录路由
+type SysMenusRouter struct{}
+
+func (r *SysMenusRouter) InitSysMenusRouter(Router *gin.RouterGroup) {
+	sysMenuApi := v1.WebApiGroupApp.Sys.SysMenuApi
+	// 用组定义--（推荐）
+	router := Router.Group("/sys")
+	{
+		// 获取菜单列表
+		router.POST("/menus/tree", sysMenuApi.FindMenus)//------------新增
+		// 查询父级菜单
+		router.POST("/menus/root", sysMenuApi.FindMenusRoot)
+		// 保存
+		router.POST("/menus/save", sysMenuApi.SaveData)
+		// 修改
+		router.POST("/menus/update", sysMenuApi.UpdateById)
+		// 启用和未启用 （控制启用，发布，删除）
+		router.POST("/menus/update/status", sysMenuApi.UpdateStatus)
+		// 删除单个 :id 获取参数的时候id := c.Param("id")，传递的时候/sys/user/del/100
+		router.POST("/menus/del/:id", sysMenuApi.DeleteById)
+		// 查询明细 /user/get/1/xxx
+		router.POST("/menus/get/:id", sysMenuApi.GetById)
+	}
+}
+
+```
+
+7: 注册路由 [init_router.go](C:\Users\zxc\go\xkginweb\initilization\init_router.go) 
+
+```go
+package initilization
+
+import (
+	"fmt"
+	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
+	"net/http"
+	"time"
+	"xkginweb/commons/filter"
+	"xkginweb/commons/middle"
+	"xkginweb/global"
+	"xkginweb/router"
+)
+
+func InitGinRouter() *gin.Engine {
+	// 打印gin的时候日志是否用颜色标出
+	//gin.ForceConsoleColor()
+	//gin.DisableConsoleColor()
+	//f, _ := os.Create("gin.log")
+	//gin.DefaultWriter = io.MultiWriter(f)
+	// 如果需要同时将日志写入文件和控制台，请使用以下代码。
+	//gin.DefaultWriter = io.MultiWriter(f, os.Stdout)
+
+	// 创建gin服务
+	ginServer := gin.Default()
+	// 提供服务组
+	courseRouter := router.RouterWebGroupApp.Course.CourseRouter
+
+	videoRouter := router.RouterWebGroupApp.Video.XkVideoRouter
+
+	userStateRouter := router.RouterWebGroupApp.State.UserStateRouter
+
+	bbsRouter := router.RouterWebGroupApp.BBs.XkBbsRouter
+	bbsCategoryRouter := router.RouterWebGroupApp.BBs.BBSCategoryRouter
+
+	loginRouter := router.RouterWebGroupApp.Login.LoginRouter
+	logoutRouter := router.RouterWebGroupApp.Login.LogoutRouter
+	codeRouter := router.RouterWebGroupApp.Code.CodeRouter
+
+	sysMenusRouter := router.RouterWebGroupApp.Sys.SysMenusRouter
+	sysApisRouter := router.RouterWebGroupApp.Sys.SysApisRouter
+	sysUserRouter := router.RouterWebGroupApp.Sys.SysUsersRouter
+	sysRolesRouter := router.RouterWebGroupApp.Sys.SysRolesRouter
+	sysUserRolesRouter := router.RouterWebGroupApp.Sys.SysUserRolesRouter
+	sysRoleMenusRouter := router.RouterWebGroupApp.Sys.SysRoleMenusRouter
+	sysRoleApisRouter := router.RouterWebGroupApp.Sys.SysRoleApisRouter
+
+	// 解决接口的跨域问题
+	ginServer.Use(filter.Cors())
+	// 接口隔离，比如登录，健康检查都不需要拦截和做任何的处理
+	// 业务模块接口，
+	privateGroup := ginServer.Group("/api")
+	// 无需jwt拦截
+	{
+		loginRouter.InitLoginRouter(privateGroup)
+		codeRouter.InitCodeRouter(privateGroup)
+	}
+	// 会被jwt拦截
+	privateGroup.Use(middle.JWTAuth()).Use(middle.Casbin())
+	{
+		logoutRouter.InitLogoutRouter(privateGroup)
+		videoRouter.InitXkVideoRouter(privateGroup)
+		courseRouter.InitCourseRouter(privateGroup)
+		userStateRouter.InitUserStateRouter(privateGroup)
+		bbsRouter.InitXkBbsRouter(privateGroup)
+		bbsCategoryRouter.InitBBSCategoryRouter(privateGroup)
+		sysMenusRouter.InitSysMenusRouter(privateGroup)
+		sysUserRouter.InitSysUsersRouter(privateGroup)
+		sysRolesRouter.InitSysRoleRouter(privateGroup)
+		sysApisRouter.InitSysApisRouter(privateGroup)
+		sysUserRolesRouter.InitSysUserRolesRouter(privateGroup)
+		sysRoleMenusRouter.InitSysRoleMenusRouter(privateGroup)
+		sysRoleApisRouter.InitSysRoleApisRouter(privateGroup)
+	}
+
+	fmt.Println("router register success")
+	return ginServer
+}
+
+func RunServer() {
+
+	// 初始化路由
+	Router := InitGinRouter()
+	// 为用户头像和文件提供静态地址
+	Router.StaticFS("/static", http.Dir("/static"))
+	address := fmt.Sprintf(":%d", global.Yaml["server.port"])
+	// 启动HTTP服务,courseController
+	s := initServer(address, Router)
+	global.Log.Debug("服务启动成功：端口是：", zap.String("port", address))
+	// 保证文本顺序输出
+	// In order to ensure that the text order output can be deleted
+	time.Sleep(10 * time.Microsecond)
+
+	s2 := s.ListenAndServe().Error()
+	global.Log.Info("服务启动完毕", zap.Any("s2", s2))
+}
+
+```
+
+8:  请求测试 api/sysmenus.js
+
+```js
+import request from '@/request/index.js'
+
+
+/**
+ * 查询菜单列表并分页
+ */
+export const LoadTreeData = (data)=>{
+   return request.post(`/sys/menus/tree?keyword=${data.keyword}`,data)
+}
+
+```
+
+9：执行测试
+
+```js
+import LoadTreeData from '@/api/sysmenus.js'
+const handleLodData = async ()=>{
+   const resp = await LoadTreeData()
+   console.log(resp)
+}
+```
+
+
+
+# 17、查询角色对应的菜单
+
+1:  根据用户查询角色 api/login/login.go
+
+```go
+// 登录的接口处理
+func (api *LoginApi) ToLogined(c *gin.Context) {
+
+	//  省略代码.........................
+	// 这个时候就判断用户输入密码和数据库的密码是否一致
+	// inputPassword = utils.Md5(123456) = 2ec9f77f1cde809e48fabac5ec2b8888
+	// dbUser.Password = 2ec9f77f1cde809e48fabac5ec2b8888
+	if dbUser != nil && dbUser.Password == adr.Md5Slat(inputPassword, dbUser.Slat) {
+		token := api.generaterToken(c, dbUser)
+		// 根据用户id查询用户的角色
+		userRoles, _ := sysUserRolesService.SelectUserRoles(dbUser.ID)//-----新增
+		// 根据用户查询菜单信息
+		roleMenus, _ := sysRoleMenusService.SelectRoleMenus(userRoles[0].ID) //----新增
+		// 根据用户id查询用户的角色的权限
+		permissions, _ := sysRoleApisService.SelectRoleApis(userRoles[0].ID) //----新增
+		
+		// 查询返回
+		response.Ok(map[string]any{"user": dbUser, "token": token, "roles": userRoles, "roleMenus": sysMenuService.Tree(roleMenus, 0), "permissions": permissions}, c)
+	} else {
+		response.Fail(60002, "你输入的账号和密码有误", c)
+	}
+}
+```
+
+2: 根据用户id查询对应的角色
+
+```go
+userRoles, _ := sysUserRolesService.SelectUserRoles(dbUser.ID)//-----新增
+```
+
+具体如下：
+
+```go
+// 查询用户授权的角色信息
+func (service *SysUserRolesService) SelectUserRoles(userId uint) (sysRoles []*sys2.SysRoles, err error) {
+	err = global.KSD_DB.Select("t2.*").Table("sys_user_roles t1,sys_roles t2").
+		Where("t1.user_id = ? and t1.role_id = t2.id", userId).Scan(&sysRoles).Error
+	return sysRoles, err
+}
+
+```
+
+3:  切换角色必须要角色对应菜单也进行刷新
+
+默认情况下，我们把用户对应的角色列表查询出来，把第一个作为默认的角色，那么就必须把默认的角色对应菜单和权限全部都全查询返回，然后页面根据服务端返回的菜单和权限进行渲染。
+
+```go
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# 17、数据加密
+
+
+
+- aes go/js
+- des go/js
+- rsa go/js
+- sha1
+- md5—-密码加密 、 文件唯一标识
+
+# 18、参数处理
+
+
+
+# 19、挤下线
+
+# 自定义的方式实现后端的鉴权处理
+
+
+
+## 01、上节课为什么debug不生效
+
+造成的原因是：版本升级带来隐患。
+
+go 1.19.2—-泛型（泛型约束），对你的指定模板类型进行约束.
+
+**什么是泛型约束**
+
+```go
+type BaseService[D any, T any] struct{}
+```
+
+
+
+## 02、解决一个bug问题，关于骨架屏幕不退的问题
+
+把原来的状态管理骨架屏幕的代码移植到App.vue 中
+
+```js
+import {useSkeletonStore} from '@/stores/skeleton.js'
+const skeletonStore = useSkeletonStore()
+
+
+onMounted(() => {
+  setTimeout(() => {
+      skeletonStore.skLoading = false;
+  }, 600)
+})
+```
+
+
+
+# 权限分配
+
+核心：所谓权限控制：其实就于未来不同角色可以访问到不同权限（具体就是你在router定义的每个接口的调用访问权限）。
+
+- role 1 — /api/sys/user/load —-A1001—user:load—有记录——又权限可以访问
+- role 1 — /api/sys/user/load —-A1001—user:load —无记录——权限不足
+
+## 关于权限API的分配和管理
+
+这部分逻辑和菜单是一模一样的
+
+### 1：创建表
+
+```sql
+CREATE TABLE `sys_apis` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `created_at` datetime DEFAULT NULL COMMENT '创建时间',
+  `updated_at` datetime DEFAULT NULL COMMENT '更新时间',
+  `path` varchar(191) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'api路径',
+  `description` varchar(191) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'api中文描述',
+  `parent_id` bigint(20) unsigned DEFAULT NULL COMMENT '隶属于菜单的api',
+  `method` varchar(191) COLLATE utf8mb4_unicode_ci DEFAULT 'POST' COMMENT '方法',
+  `is_deleted` bigint(20) unsigned DEFAULT '0',
+  `title` varchar(191) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'api路径名称',
+  `code` varchar(191) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '权限代号',
+  `sort` bigint(20) DEFAULT NULL COMMENT '排序标记',
+  PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE KEY `path` (`path`),
+  UNIQUE KEY `code` (`code`)
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC COMMENT='权限表';
+```
+
+### 2： 结构体
+
+```go
+package sys
+
+import (
+	"gorm.io/plugin/soft_delete"
+	"time"
+)
+
+type SysApis struct {
+	ID          uint                  `gorm:"primarykey;comment:主键ID" json:"id" structs:"-"` // 主键ID
+	CreatedAt   time.Time             `gorm:"type:datetime(0);autoCreateTime;comment:创建时间" json:"createdAt" structs:"-"`
+	UpdatedAt   time.Time             `gorm:"type:datetime(0);autoUpdateTime;comment:更新时间" json:"updatedAt" structs:"-"`
+	IsDeleted   soft_delete.DeletedAt `gorm:"softDelete:flag,DeletedAtField:DeletedAt;default:0" json:"isDeleted" structs:"is_deleted"`
+	Title       string                `json:"title" gorm:"comment:api路径名称"`          // api路径
+	Path        string                `json:"path" gorm:"comment:api路径"`             // api路径
+	Description string                `json:"description" gorm:"comment:api中文描述"`    // api中文描述
+	ParentId    uint                  `json:"parentId" gorm:"comment:隶属于菜单的api"`     // api组
+	Method      string                `json:"method" gorm:"default:POST;comment:方法"` // 方法:创建POST(默认)|查看GET|更新PUT|删除DELETE
+	Code        string                `json:"code" gorm:"comment:权限代号"`              // 方法:创建POST(默认)|查看GET|更新PUT|删除DELETE
+	// 忽略该字段，- 表示无读写，-:migration 表示无迁移权限，-:all 表示无读写迁移权限
+	Children []*SysApis `gorm:"-" json:"children"`
+}
+
+func (s *SysApis) TableName() string {
+	return "sys_apis"
+}
+
+```
+
+### 3: service
+
+```go
+package sys
+
+import (
+	"xkginweb/global"
+	"xkginweb/model/entity/sys"
+	"xkginweb/service/commons"
+)
+
+// 对用户表的数据层处理
+type SysApisService struct {
+	commons.BaseService[uint, sys.SysApis]
+}
+
+// 添加
+func (service *SysApisService) SaveSysApis(sysApis *sys.SysApis) (err error) {
+	err = global.KSD_DB.Create(sysApis).Error
+	return err
+}
+
+// 修改
+func (service *SysApisService) UpdateSysApis(sysApis *sys.SysApis) (err error) {
+	err = global.KSD_DB.Unscoped().Model(sysApis).Updates(sysApis).Error
+	return err
+}
+
+// 按照map的方式更新
+func (service *SysApisService) UpdateSysApisMap(sysApis *sys.SysApis, mapFileds *map[string]any) (err error) {
+	err = global.KSD_DB.Unscoped().Model(sysApis).Updates(mapFileds).Error
+	return err
+}
+
+// 删除
+func (service *SysApisService) DelSysApisById(id uint) (err error) {
+	var sysApis sys.SysApis
+	err = global.KSD_DB.Where("id = ?", id).Delete(&sysApis).Error
+	return err
+}
+
+// 批量删除
+func (service *SysApisService) DeleteSysApissByIds(sysApiss []sys.SysApis) (err error) {
+	err = global.KSD_DB.Delete(&sysApiss).Error
+	return err
+}
+
+// 根据id查询信息
+func (service *SysApisService) GetSysApisByID(id uint) (sysApiss *sys.SysApis, err error) {
+	err = global.KSD_DB.Unscoped().Omit("created_at", "updated_at").Where("id = ?", id).First(&sysApiss).Error
+	return
+}
+
+func (service *SysApisService) FinApiss(keyword string) (sysApis []*sys.SysApis, err error) {
+	db := global.KSD_DB.Unscoped().Order("sort asc")
+	if len(keyword) > 0 {
+		db.Where("title like ?", "%"+keyword+"%")
+	}
+	err = db.Find(&sysApis).Error
+	return sysApis, err
+}
+
+/**
+*   开始把数据进行编排--递归
+*   Tree(all,0)
+ */
+func (service *SysApisService) Tree(allSysApis []*sys.SysApis, parentId uint) []*sys.SysApis {
+	var nodes []*sys.SysApis
+	for _, dbApis := range allSysApis {
+		if dbApis.ParentId == parentId {
+			childrensApis := service.Tree(allSysApis, dbApis.ID)
+			if len(childrensApis) > 0 {
+				dbApis.Children = append(dbApis.Children, childrensApis...)
+			}
+			nodes = append(nodes, dbApis)
+		}
+	}
+	return nodes
+}
+
+/*
+*
+数据复制
+*/
+func (service *SysApisService) CopyData(id uint) (dbData *sys.SysApis, err error) {
+	// 2: 查询id数据
+	sysApisData, err := service.GetByID(id)
+	if err != nil {
+		return nil, err
+	}
+	// 3: 开始复制
+	sysApisData.ID = 0
+	sysApisData.Path = ""
+	sysApisData.Code = ""
+	// 4: 保存入库
+	data, err := service.Save(sysApisData)
+
+	return data, err
+}
+
+```
+
+### 4: 定义接口
+
+```go
+package sys
+
+import (
+	"fmt"
+	"github.com/fatih/structs"
+	"github.com/gin-gonic/gin"
+	"strconv"
+	"strings"
+	"xkginweb/commons/response"
+	"xkginweb/global"
+	"xkginweb/model/entity/sys"
+)
+
+type SysApisApi struct {
+	global.BaseApi
+}
+
+// 拷贝
+func (api *SysApisApi) CopyData(c *gin.Context) {
+	// 1: 获取id数据 注意定义李媛媛的/:id
+	id := c.Param("id")
+	data, _ := sysApisService.CopyData(api.StringToUnit(id))
+	response.Ok(data, c)
+}
+
+// 保存
+func (api *SysApisApi) SaveData(c *gin.Context) {
+	// 1: 第一件事情就准备数据的载体
+	var sysApis sys.SysApis
+	err := c.ShouldBindJSON(&sysApis)
+	if err != nil {
+		// 如果参数注入失败或者出错就返回接口调用这。出错了.
+		response.FailWithMessage(err.Error(), c)
+		return
+	}
+	// 创建实例，保存帖子
+	err = sysApisService.SaveSysApis(&sysApis)
+	// 如果保存失败。就返回创建失败的提升
+	if err != nil {
+		response.FailWithMessage("创建失败", c)
+		return
+	}
+	// 如果保存成功，就返回创建创建成功
+	response.Ok("创建成功", c)
+}
+
+// 状态修改
+func (api *SysApisApi) UpdateStatus(c *gin.Context) {
+	type Params struct {
+		Id    uint   `json:"id"`
+		Filed string `json:"field"`
+		Value any    `json:"value"`
+	}
+	var params Params
+	err := c.ShouldBindJSON(&params)
+	if err != nil {
+		// 如果参数注入失败或者出错就返回接口调用这。出错了.
+		response.FailWithMessage(err.Error(), c)
+		return
+	}
+
+	flag, _ := sysApisService.UnUpdateStatus(params.Id, params.Filed, params.Value)
+	// 如果保存失败。就返回创建失败的提升
+	if !flag {
+		response.FailWithMessage("更新失败", c)
+		return
+	}
+	// 如果保存成功，就返回创建创建成功
+	response.Ok("更新成功", c)
+}
+
+// 编辑修改
+func (api *SysApisApi) UpdateById(c *gin.Context) {
+	// 1: 第一件事情就准备数据的载体
+	var sysApis sys.SysApis
+	err := c.ShouldBindJSON(&sysApis)
+	if err != nil {
+		// 如果参数注入失败或者出错就返回接口调用这。出错了.
+		response.FailWithMessage(err.Error(), c)
+		return
+	}
+
+	// 结构体转化成map呢？
+	m := structs.Map(sysApis)
+	m["is_deleted"] = sysApis.IsDeleted
+	err = sysApisService.UpdateSysApisMap(&sysApis, &m)
+	// 如果保存失败。就返回创建失败的提升
+	if err != nil {
+		fmt.Println(err)
+		response.FailWithMessage("更新失败", c)
+		return
+	}
+	// 如果保存成功，就返回创建创建成功
+	response.Ok("更新成功", c)
+}
+
+// 根据id删除
+func (api *SysApisApi) DeleteById(c *gin.Context) {
+	// 绑定参数用来获取/:id这个方式
+	id := c.Param("id")
+	// 开始执行
+	parseUint, _ := strconv.ParseUint(id, 10, 64)
+	err := sysApisService.DelSysApisById(uint(parseUint))
+	if err != nil {
+		response.FailWithMessage("删除失败", c)
+		return
+	}
+	response.Ok("ok", c)
+}
+
+// 根据id查询信息
+func (api *SysApisApi) GetById(c *gin.Context) {
+	// 根据id查询方法
+	id := c.Param("id")
+	// 根据id查询方法
+	parseUint, _ := strconv.ParseUint(id, 10, 64)
+	sysUser, err := sysApisService.GetSysApisByID(uint(parseUint))
+	if err != nil {
+		global.SugarLog.Errorf("查询用户: %s 失败", id)
+		response.FailWithMessage("查询用户失败", c)
+		return
+	}
+
+	response.Ok(sysUser, c)
+}
+
+// 批量删除
+func (api *SysApisApi) DeleteByIds(c *gin.Context) {
+	// 绑定参数用来获取/:id这个方式
+	ids := c.Query("ids")
+	idstrings := strings.Split(ids, ",")
+	var sysApis []sys.SysApis
+	for _, id := range idstrings {
+		parseUint, _ := strconv.ParseUint(id, 10, 64)
+		sysApi := sys.SysApis{}
+		sysApi.ID = uint(parseUint)
+		sysApis = append(sysApis, sysApi)
+	}
+
+	err := sysApisService.DeleteSysApissByIds(sysApis)
+	if err != nil {
+		response.FailWithMessage("删除失败", c)
+		return
+	}
+	response.Ok("ok", c)
+}
+
+// 查询权限信息
+func (api *SysApisApi) FindApisTree(c *gin.Context) {
+	keyword := c.Query("keyword")
+	sysApis, err := sysApisService.FinApiss(keyword)
+	if err != nil {
+		response.FailWithMessage("获取失败", c)
+		return
+	}
+	response.Ok(sysApisService.Tree(sysApis, 0), c)
+}
+
+```
+
+### 5: 定义具体的接口路由
+
+```go
+package sys
+
+import (
+	"github.com/gin-gonic/gin"
+	v1 "xkginweb/api/v1"
+)
+
+// 登录路由
+type SysApisRouter struct{}
+
+func (r *SysApisRouter) InitSysApisRouter(Router *gin.RouterGroup) {
+	sysApisApi := v1.WebApiGroupApp.Sys.SysApisApi
+	// 用组定义--（推荐）
+	router := Router.Group("/sys")
+	{
+		// 获取菜单列表
+		router.POST("/apis/tree", sysApisApi.FindApisTree)
+		// 保存
+		router.POST("/apis/save", sysApisApi.SaveData)
+		// 复制数据
+		router.POST("/apis/copy/:id", sysApisApi.CopyData)
+		// 修改
+		router.POST("/apis/update", sysApisApi.UpdateById)
+		// 启用和未启用 （控制启用，发布，删除）
+		router.POST("/apis/update/status", sysApisApi.UpdateStatus)
+		// 删除单个 :id 获取参数的时候id := c.Param("id")，传递的时候/sys/user/del/100
+		router.POST("/apis/del/:id", sysApisApi.DeleteById)
+		// 删除多个  获取参数的时候ids := c.Query("ids")，传递的时候/sys/user/dels?ids=1,2,3,4
+		router.POST("/apis/dels", sysApisApi.DeleteByIds)
+		// 查询明细 /user/get/1/xxx
+		router.POST("/apis/get/:id", sysApisApi.GetById)
+	}
+}
+
+```
+
+### 6： 然后在 [initilization](C:\Users\zxc\go\xkginweb\initilization)的init-router.go进行注册
+
+```go
+package initilization
+
+import (
+	"fmt"
+	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
+	"net/http"
+	"time"
+	"xkginweb/commons/filter"
+	"xkginweb/commons/middle"
+	"xkginweb/global"
+	"xkginweb/router"
+)
+
+func InitGinRouter() *gin.Engine {
+	// 打印gin的时候日志是否用颜色标出
+	//gin.ForceConsoleColor()
+	//gin.DisableConsoleColor()
+	//f, _ := os.Create("gin.log")
+	//gin.DefaultWriter = io.MultiWriter(f)
+	// 如果需要同时将日志写入文件和控制台，请使用以下代码。
+	//gin.DefaultWriter = io.MultiWriter(f, os.Stdout)
+
+	// 创建gin服务
+	ginServer := gin.Default()
+	// 提供服务组
+	courseRouter := router.RouterWebGroupApp.Course.CourseRouter
+
+	videoRouter := router.RouterWebGroupApp.Video.XkVideoRouter
+
+	userStateRouter := router.RouterWebGroupApp.State.UserStateRouter
+
+	bbsRouter := router.RouterWebGroupApp.BBs.XkBbsRouter
+	bbsCategoryRouter := router.RouterWebGroupApp.BBs.BBSCategoryRouter
+
+	loginRouter := router.RouterWebGroupApp.Login.LoginRouter
+	logoutRouter := router.RouterWebGroupApp.Login.LogoutRouter
+	codeRouter := router.RouterWebGroupApp.Code.CodeRouter
+
+	sysMenusRouter := router.RouterWebGroupApp.Sys.SysMenusRouter
+	sysApisRouter := router.RouterWebGroupApp.Sys.SysApisRouter // -----------------新增代码
+	sysUserRouter := router.RouterWebGroupApp.Sys.SysUsersRouter
+	sysRolesRouter := router.RouterWebGroupApp.Sys.SysRolesRouter
+	sysUserRolesRouter := router.RouterWebGroupApp.Sys.SysUserRolesRouter
+	sysRoleMenusRouter := router.RouterWebGroupApp.Sys.SysRoleMenusRouter
+	sysRoleApisRouter := router.RouterWebGroupApp.Sys.SysRoleApisRouter
+
+	// 解决接口的跨域问题
+	ginServer.Use(filter.Cors())
+	// 接口隔离，比如登录，健康检查都不需要拦截和做任何的处理
+	// 业务模块接口，
+	privateGroup := ginServer.Group("/api")
+	// 无需jwt拦截
+	{
+		loginRouter.InitLoginRouter(privateGroup)
+		codeRouter.InitCodeRouter(privateGroup)
+	}
+	// 会被jwt拦截
+	privateGroup.Use(middle.JWTAuth()).Use(middle.RBAC())
+	{
+		logoutRouter.InitLogoutRouter(privateGroup)
+		videoRouter.InitXkVideoRouter(privateGroup)
+		courseRouter.InitCourseRouter(privateGroup)
+		userStateRouter.InitUserStateRouter(privateGroup)
+		bbsRouter.InitXkBbsRouter(privateGroup)
+		bbsCategoryRouter.InitBBSCategoryRouter(privateGroup)
+		sysMenusRouter.InitSysMenusRouter(privateGroup)
+		sysUserRouter.InitSysUsersRouter(privateGroup)
+		sysRolesRouter.InitSysRoleRouter(privateGroup)
+		sysApisRouter.InitSysApisRouter(privateGroup)// ---------------------------------新增代码
+		sysUserRolesRouter.InitSysUserRolesRouter(privateGroup)
+		sysRoleMenusRouter.InitSysRoleMenusRouter(privateGroup)
+		sysRoleApisRouter.InitSysRoleApisRouter(privateGroup)
+	}
+
+	fmt.Println("router register success")
+	return ginServer
+}
+
+func RunServer() {
+
+	// 初始化路由
+	Router := InitGinRouter()
+	// 为用户头像和文件提供静态地址
+	Router.StaticFS("/static", http.Dir("/static"))
+	address := fmt.Sprintf(":%d", global.Yaml["server.port"])
+	// 启动HTTP服务,courseController
+	s := initServer(address, Router)
+	global.Log.Debug("服务启动成功：端口是：", zap.String("port", address))
+	// 保证文本顺序输出
+	// In order to ensure that the text order output can be deleted
+	time.Sleep(10 * time.Microsecond)
+
+	s2 := s.ListenAndServe().Error()
+	global.Log.Info("服务启动完毕", zap.Any("s2", s2))
+}
+
+```
+
+### 7： 前端定义api接口
+
+```go
+import request from '@/request/index.js'
+import { C2B  } from '../utils/wordtransfer'
+
+/**
+ * 查询权限列表并分页
+ */
+export const LoadTreeData = (data)=>{
+   return request.post(`/sys/apis/tree`,data)
+}
+
+/**
+ * 根据id查询权限信息
+ */
+export const GetById = ( id )=>{
+   return request.post(`/sys/apis/get/${id}`)
+}
+
+/**
+ * 保存权限
+ */
+export const SaveData = ( data )=>{
+   return request.post(`/sys/apis/save`,data)
+}
+
+/**
+ * 更新权限信息
+ */
+export const UpdateData = ( data )=>{
+   return request.post(`/sys/apis/update`,data)
+}
+
+
+/**
+ * 根据id删除权限信息
+ */
+export const DelById = ( id )=>{
+   return request.post(`/sys/apis/del/${id}`)
+}
+
+/**
+ * 根据ids批量删除权限信息
+ */
+export const DelByIds = ( ids )=>{
+   return request.post(`/sys/apis/dels?ids=${ids}`)
+}
+
+/**
+ * 权限启用和未启用
+ */
+export const UpdateStatus = ( data )=>{
+   data.field = C2B(data.field)
+   return request.post(`/sys/apis/update/status`,data)
+}
+
+
+/**
+ * 复制数据
+ */
+export const CopyData = ( id )=>{
+   return request.post(`/sys/apis/copy/${id}`,{})
+}
+
+```
+
+### 8: 开始对接页面 views/sys/Permission.vue
+
+```vue
+<template>
+  <div class="kva-container">
+    <div class="kva-contentbox">
+      <home-page-header>
+        <div class="kva-form-search">
+          <el-form :inline="true" ref="searchForm" :model="queryParams">
+            <el-form-item>
+              <el-button type="primary"  icon="Plus" @click="handleAdd">添加权限</el-button>
+            </el-form-item>
+            <el-form-item label="关键词：">
+              <el-input v-model="queryParams.keyword" placeholder="请输入菜单名称..." maxlength="10" clearable />
+            </el-form-item>
+            <el-form-item>
+              <el-button type="primary" icon="Search" @click.prevent="handleSearch">搜索</el-button>
+              <el-button type="danger" icon="Refresh" @click.prevent="handleReset">重置</el-button>
+            </el-form-item>
+          </el-form>
+        </div>
+        <!-- default-expand-all -->
+        <el-table
+          :data="tableData"
+          style="width: 100%; margin-bottom: 20px"
+          row-key="id"
+          border
+          stripe
+          :height="settings.tableHeight()"
+        >
+          <el-table-column fixed prop="id" label="ID" align="center" width="80"  />
+          <el-table-column fixed prop="parentId" label="父ID" align="center" width="80" />
+          <el-table-column prop="title" label="展示名字" align="center" >
+            <template #default="{row}">
+                <el-input v-model="row.title" style="text-align:center" @change="handleChange(row,'title')"></el-input>
+            </template>
+          </el-table-column>
+          <el-table-column prop="code" label="编号" align="center" >
+            <template #default="{row}">
+                <el-input v-model="row.code" style="text-align:center" @change="handleChange(row,'code')"></el-input>
+            </template>
+          </el-table-column>
+          <el-table-column prop="code" label="访问路径" align="center" >
+            <template #default="{row}">
+                <el-input v-model="row.path" style="text-align:center" @change="handleChange(row,'path')"></el-input>
+            </template>
+          </el-table-column>
+          <el-table-column prop="sort" label="排序"  align="center" width="180">
+            <template #default="{row}">
+                <el-input-number v-model="row.sort" @change="handleChange(row,'sort')"></el-input-number>
+            </template>
+          </el-table-column>
+          <el-table-column label="是否删除" align="center" width="180">
+            <template #default="{row}">
+              <el-switch 
+              v-model="row.isDeleted" 
+              @change="handleChange(row,'isDeleted')" 
+              active-color="#ff0000"
+               active-text="已删除" 
+               inactive-text="未删除" 
+               :active-value="1" 
+               :inactive-value="0"/>
+            </template>
+          </el-table-column>
+          <el-table-column label="创建时间" align="center" width="160">
+            <template #default="scope">
+              {{ formatTimeToStr(scope.row.createdAt,"yyyy/MM/dd hh:mm:ss") }}
+            </template>
+          </el-table-column>
+          <el-table-column label="更新时间" align="center" width="160">
+            <template #default="scope">
+              {{ formatTimeToStr(scope.row.updatedAt,"yyyy/MM/dd hh:mm:ss") }}
+            </template>
+          </el-table-column>
+          <el-table-column fixed="right" align="center" label="操作" width="350">
+            <template #default="{row,$index}">
+              <el-button text icon="edit" @click="handleEdit(row)"  type="primary">编辑</el-button>
+              <el-button text icon="Tickets" @click="handleCopy(row)"  type="success">复制</el-button>
+              <el-button text icon="remove" @click="handleRemove(row)"  type="danger">删除</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </home-page-header>
+    </div>
+    <!--添加和修改菜单-->
+    <add-sys-apis ref="addRef"  @load="handleLoadData"></add-sys-apis>
+  </div>
+</template>
+
+<script  setup>
+import { C2B,B2C } from '@/utils/wordtransfer'
+import KVA from '@/utils/kva.js'
+import settings from '@/settings';
+import { formatTimeToStr } from '@/utils/date'
+import AddSysApis from '@/views/sys/components/AddSysApis.vue'
+import { LoadTreeData,UpdateStatus,CopyData,DelById } from '@/api/sysapis.js';
+import { reactive } from 'vue';
+import { useUserStore } from '@/stores/user.js'
+const userStore = useUserStore()
+const addRef = ref(null);
+
+// 搜索属性定义
+let queryParams = reactive({
+  keyword:""
+})
+
+// 数据容器
+const tableData = ref([]) 
+const searchForm = ref(null)
+// 搜索
+const handleSearch = ()=> {
+  handleLoadData()
+}
+
+// 查询列表
+const handleLoadData = async ()=>{
+  const resp = await LoadTreeData(queryParams)
+  tableData.value = resp.data
+}
+
+// 添加
+const handleAdd = ()=>{
+  addRef.value.handleOpen('','save',tableData.value?.length)
+}
+
+// 编辑
+const handleEdit =  async (row) => {
+  // 在打开,再查询，
+  addRef.value.handleOpen(row.id,'edit',tableData.value?.length)
+}
+
+// 添加子菜单
+const handleAddChild = (row) => {
+  addRef.value.handleOpen(row,'child',row.children?.length)
+}
+
+// 改变序号 sorted,标题 title、启用 status,isDeleted
+const handleChange = async (row,field) =>{
+  var value = row[field];//row.isDeleted=0 
+  var params = {id:row.id,field:field,value:value};
+  await UpdateStatus(params); 
+  KVA.notifySuccess("更新成功")
+  if(field=="sort"){
+    tableData.value.sort((a,b)=>a.sort-b.sort);
+  }
+}
+
+
+
+// 物理删除
+const handleRemove =  async (row) => {
+  try{
+    await KVA.confirm("警告","你确定要抛弃我么？",{icon:"error"})
+    await DelById(row.id)
+    KVA.notifySuccess("操作成功")
+    userStore.handlePianaRole(0,"")
+    handleLoadData()
+  }catch(e){
+    KVA.notifyError("操作失败")
+  }
+}
+
+// 重置搜索表单
+const handleReset = () => {
+  queryParams.keyword = ""
+  searchForm.value.resetFields()
+  handleLoadData()
+}
+
+
+
+// 复制
+const handleCopy = async (row) => {
+  await CopyData(row.id);
+  KVA.notifySuccess("复制成功")
+  handleLoadData()
+}
+
+// 生命周期加载
+onMounted(()=>{
+  handleLoadData()
+
+  console.log("C2B",C2B("isDeletedNum"))
+  console.log("B2C",B2C("is_deleted_num"))
+})
+
+
+</script>
+
+```
+
+具体后续看视频就不展开了
+
+
+
+# 关于cashbin的后端鉴权处理
+
+参考文档：
+
+- https://www.jb51.net/article/213556.htm
+- https://blog.csdn.net/baidu_32452525/article/details/118199304
+- https://github.com/casbin/casbin
+- https://github.com/patrickmn/go-cache
+- https://www.jianshu.com/p/b5e0c5fcaa2a
+- https://blog.csdn.net/lanyanleio/article/details/127516463
+- https://blog.csdn.net/qq_42120178/article/details/117156766（推荐）
+- https://casbin.org/editor/ （推荐）
+
+
+
+## 01、安装
+
+```
+go get github.com/casbin/casbin/v2
+go get github.com/casbin/gorm-adapter/v3
+```
+
+Gorm Adapter
+----
+
+> In v3.0.3, method `NewAdapterByDB` creates table named `casbin_rules`,  
+> we fix it to `casbin_rule` after that.  
+> If you used v3.0.3 and less, and you want to update it,  
+> you might need to *migrate* data manually.
+> Find out more at: https://github.com/casbin/gorm-adapter/issues/78
+
+Gorm Adapter is the [Gorm](https://gorm.io/gorm) adapter for [Casbin](https://github.com/casbin/casbin). With this library, Casbin can load policy from Gorm supported database or save policy to it.
+
+Based on [Officially Supported Databases](https://v1.gorm.io/docs/connecting_to_the_database.html#Supported-Databases), The current supported databases are:
+
+- MySQL
+- PostgreSQL
+- SQL Server
+- Sqlite3
+
+> gorm-adapter use ``github.com/glebarez/sqlite`` instead of gorm official sqlite driver ``gorm.io/driver/sqlite`` because the latter needs ``cgo`` support. But there is almost no difference between the two driver. If there is a difference in use, please submit an issue.
+
+- other 3rd-party supported DBs in Gorm website or other places.
+
+## Installation
+
+    go get github.com/casbin/gorm-adapter/v3
+
+## Simple Example
+
+```go
+package main
+
+import (
+	"github.com/casbin/casbin/v2"
+	gormadapter "github.com/casbin/gorm-adapter/v3"
+	_ "github.com/go-sql-driver/mysql"
+)
+
+func main() {
+	// Initialize a Gorm adapter and use it in a Casbin enforcer:
+	// The adapter will use the MySQL database named "casbin".
+	// If it doesn't exist, the adapter will create it automatically.
+	// You can also use an already existing gorm instance with gormadapter.NewAdapterByDB(gormInstance)
+	a, _ := gormadapter.NewAdapter("mysql", "mysql_username:mysql_password@tcp(127.0.0.1:3306)/") // Your driver and data source.
+	e, _ := casbin.NewEnforcer("examples/rbac_model.conf", a)
+	
+	// Or you can use an existing DB "abc" like this:
+	// The adapter will use the table named "casbin_rule".
+	// If it doesn't exist, the adapter will create it automatically.
+	// a := gormadapter.NewAdapter("mysql", "mysql_username:mysql_password@tcp(127.0.0.1:3306)/abc", true)
+
+	// Load the policy from DB.
+	e.LoadPolicy()
+	
+	// Check the permission.
+	e.Enforce("alice", "data1", "read")
+	
+	// Modify the policy.
+	// e.AddPolicy(...)
+	// e.RemovePolicy(...)
+	
+	// Save the policy back to DB.
+	e.SavePolicy()
+}
+```
+
+## Turn off AutoMigrate
+
+New an adapter will use ``AutoMigrate`` by default for create table, if you want to turn it off, please use API ``TurnOffAutoMigrate(db *gorm.DB) *gorm.DB``. See example: 
+
+```go
+db, err := gorm.Open(mysql.Open("root:@tcp(127.0.0.1:3306)/casbin"), &gorm.Config{})
+TurnOffAutoMigrate(db)
+// a,_ := NewAdapterByDB(...)
+// a,_ := NewAdapterByDBUseTableName(...)
+a,_ := NewAdapterByDBWithCustomTable(...)
+```
+
+Find out more details at [gorm-adapter#162](https://github.com/casbin/gorm-adapter/issues/162)
+
+## Customize table columns example
+
+You can change the gorm struct tags, but the table structure must stay the same.
+
+```go
+package main
+
+import (
+	"github.com/casbin/casbin/v2"
+	gormadapter "github.com/casbin/gorm-adapter/v3"
+	"gorm.io/gorm"
+)
+
+func main() {
+	// Increase the column size to 512.
+	type CasbinRule struct {
+		ID    uint   `gorm:"primaryKey;autoIncrement"`
+		Ptype string `gorm:"size:512;uniqueIndex:unique_index"`
+		V0    string `gorm:"size:512;uniqueIndex:unique_index"`
+		V1    string `gorm:"size:512;uniqueIndex:unique_index"`
+		V2    string `gorm:"size:512;uniqueIndex:unique_index"`
+		V3    string `gorm:"size:512;uniqueIndex:unique_index"`
+		V4    string `gorm:"size:512;uniqueIndex:unique_index"`
+		V5    string `gorm:"size:512;uniqueIndex:unique_index"`
+	}
+
+	db, _ := gorm.Open(...)
+
+	// Initialize a Gorm adapter and use it in a Casbin enforcer:
+	// The adapter will use an existing gorm.DB instnace.
+	a, _ := gormadapter.NewAdapterByDBWithCustomTable(db, &CasbinRule{}) 
+	e, _ := casbin.NewEnforcer("examples/rbac_model.conf", a)
+	
+	// Load the policy from DB.
+	e.LoadPolicy()
+	
+	// Check the permission.
+	e.Enforce("alice", "data1", "read")
+	
+	// Modify the policy.
+	// e.AddPolicy(...)
+	// e.RemovePolicy(...)
+	
+	// Save the policy back to DB.
+	e.SavePolicy()
+}
+```
+
+## Transaction
+
+You can modify policies within a transaction.See example:
+
+```go
+package main
+
+func main() {
+	a, err := NewAdapterByDB(db)
+	e, _ := casbin.NewEnforcer("examples/rbac_model.conf", a)
+	err = e.GetAdapter().(*Adapter).Transaction(e, func(e casbin.IEnforcer) error {
+		_, err := e.AddPolicy("jack", "data1", "write")
+		if err != nil {
+			return err
+		}
+		_, err = e.AddPolicy("jack", "data2", "write")
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		// handle if transaction failed
+		return
+	}
+}
+```
+
+## ConditionsToGormQuery
+
+`ConditionsToGormQuery()` is a function that converts multiple query conditions into a GORM query statement
+You can use the `GetAllowedObjectConditions()` API of Casbin to get conditions,
+and choose the way of combining conditions through `combineType`.
+
+`ConditionsToGormQuery()` allows Casbin to be combined with SQL, and you can use it to implement many functions.
+
+### Example: GetAllowedRecordsForUser
+
+* model example: [object_conditions_model.conf](examples/object_conditions_model.conf)
+* policy example: [object_conditions_policy.csv](examples/object_conditions_policy.csv)
+
+DataBase example:
+
+| id   | title | author  | publisher  | publish_data        | price | category_id |
+| ---- | ----- | ------- | ---------- | ------------------- | ----- | ----------- |
+| 1    | book1 | author1 | publisher1 | 2023-04-09 16:23:42 | 10    | 1           |
+| 2    | book2 | author1 | publisher1 | 2023-04-09 16:23:44 | 20    | 2           |
+| 3    | book3 | author2 | publisher1 | 2023-04-09 16:23:44 | 30    | 1           |
+| 4    | book4 | author2 | publisher2 | 2023-04-09 16:23:45 | 10    | 3           |
+| 5    | book5 | author3 | publisher2 | 2023-04-09 16:23:45 | 50    | 1           |
+| 6    | book6 | author3 | publisher2 | 2023-04-09 16:23:46 | 60    | 2           |
+
+
+```go
+type Book struct {
+    ID          int
+    Title       string
+    Author      string
+    Publisher   string
+    PublishDate time.Time
+    Price       float64
+    CategoryID  int
+}
+
+func TestGetAllowedRecordsForUser(t *testing.T) {
+	e, _ := casbin.NewEnforcer("examples/object_conditions_model.conf", "examples/object_conditions_policy.csv")
+
+	conditions, err := e.GetAllowedObjectConditions("alice", "read", "r.obj.")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(conditions)
+
+	dsn := "root:root@tcp(127.0.0.1:3307)/test?charset=utf8mb4&parseTime=True&loc=Local"
+	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("CombineTypeOr")
+	rows, err := ConditionsToGormQuery(db, conditions, CombineTypeOr).Model(&Book{}).Rows()
+	defer rows.Close()
+	var b Book
+	for rows.Next() {
+		err := db.ScanRows(rows, &b)
+		if err != nil {
+			panic(err)
+		}
+		log.Println(b)
+	}
+
+	fmt.Println("CombineTypeAnd")
+	rows, err = ConditionsToGormQuery(db, conditions, CombineTypeAnd).Model(&Book{}).Rows()
+	defer rows.Close()
+	for rows.Next() {
+		err := db.ScanRows(rows, &b)
+		if err != nil {
+			panic(err)
+		}
+		log.Println(b)
+	}
+}
+```
+
+
+## Getting Help
+
+- [Casbin](https://github.com/casbin/casbin)
+
+## License
+
+This project is under Apache 2.0 License. See the [LICENSE](LICENSE) file for the full license text.
+
+
+
+# 账号挤下线（验证码）
+
+
+
+## 01、需求
+
+同一个账号，是不同地方登录。只能让一个有效（最后一次登录有效），之前全部会自动挤下去。
+
+## 02、实现
+
+1： 用户登录，会根据用户id生成一个唯一登录标识，然后放入到服务器，返回给客户端。
+
+2：然后用户未来每个接口请求的时候，都会携带这个唯一标识和用户id
+
+3：然后把用户携带的id和标识，和服务端存储的唯一标识进行比对。
+
+## 03、本地缓存
+
+go-cache
+
+1：基于内存的 K/V 存储/缓存 : (类似于Memcached)，适用于单机应用程序。（在go的进程内存中，挖来一个空间出来用来存储数据，而这个数据可以让别线程进行数据共享。）
+
+2：缓存数据，如果一直放的话，可能溢出。可能影响主进程的执行。所以大部分的缓存设计都会考虑到：淘汰策略
+
+- Least Recently  Used (LRU)：最近最少使用策略，删除最近最少被使用的缓存项。
+- First In First Out (FIFO)：先进先出策略，删除最早被加入到缓存中的缓存项。
+- Least Frequently Used (LFU)：最不经常使用策略，删除使用频率最低的缓存项。
+- Random Replacement (RR)：随机替换策略，根据一个随机算法选择要删除的缓存项。
+
+3: 底层原理就是：全局Map (安全性，学习锁)
+
+
+
+### 03-01、安装
+
+```go
+go get github.com/patrickmn/go-cache
+```
+
+### 03-02、使用
+
+在global包下的 global.go增加缓存对象
+
+```go
+package global
+
+import (
+	"github.com/go-redis/redis/v8"
+	"github.com/patrickmn/go-cache"
+	"github.com/songzhibin97/gkit/cache/local_cache"
+	"go.uber.org/zap"
+	"gorm.io/gorm"
+	"sync"
+	"xkginweb/commons/parse"
+)
+
+var (
+	Cache      *cache.Cache //-------------------新增代码
+	Log        *zap.Logger
+	SugarLog   *zap.SugaredLogger
+	Lock       sync.RWMutex
+	Yaml       map[string]interface{}
+	Config     *parse.Config
+	KSD_DB     *gorm.DB
+	BlackCache local_cache.Cache
+	REDIS      *redis.Client
+)
+
+```
+
+然后初始化global.cache。在 [initilization](..\go\xkginweb\initilization) 下新建一个  [init_cache.go](..\go\xkginweb\initilization\init_cache.go) 文件如下：
+
+```go
+package initilization
+
+import (
+	"github.com/patrickmn/go-cache"
+	"time"
+	"xkginweb/global"
+)
+
+func InitCache() {
+	c := cache.New(5*time.Minute, 24*60*time.Minute)
+	global.Cache = c
+}
+
+```
+
+然后在main.go初始化global.cache对象如下
+
+```go
+package main
+
+import (
+	"xkginweb/initilization"
+)
+
+func main() {
+	// 解析配置文件
+	initilization.InitViper()
+	// 初始化日志 开发的时候建议设置成：debug ，发布的时候建议设置成：info/error
+	// info --- console + file
+	// error -- file
+	initilization.InitLogger("debug")
+	// 初始化中间 redis/mysql/mongodb
+	initilization.InitMySQL()
+	// 初始化缓存
+	initilization.InitRedis()
+	// 初始化本地缓存
+	initilization.InitCache()//-------------------新增代码
+	// 定时器
+	// 并发问题解决方案
+	// 异步编程
+	// 初始化路由
+	initilization.RunServer()
+}
+
+```
+
+然后找到api/v1/login/login.go 在登录的时候，增加uuid写入缓存和返回的处理
+
+```go
+// 登录的接口处理
+func (api *LoginApi) ToLogined(c *gin.Context) {
+	type LoginParam struct {
+		Account  string
+		Code     string
+		CodeId   string
+		Password string
+	}
+
+	// 1：获取用户在页面上输入的账号和密码开始和数据库里数据进行校验
+	param := LoginParam{}
+	err2 := c.ShouldBindJSON(&param)
+	if err2 != nil {
+		response.Fail(60002, "参数绑定有误", c)
+		return
+	}
+
+	if len(param.Code) == 0 {
+		response.Fail(60002, "请输入验证码", c)
+		return
+	}
+
+	if len(param.CodeId) == 0 {
+		response.Fail(60002, "验证码获取失败", c)
+		return
+	}
+
+	// 开始校验验证码是否正确
+	verify := store.Verify(param.CodeId, param.Code, true)
+	if !verify {
+		response.Fail(60002, "你输入的验证码有误!!", c)
+		return
+	}
+
+	inputAccount := param.Account
+	inputPassword := param.Password
+
+	if len(inputAccount) == 0 {
+		response.Fail(60002, "请输入账号", c)
+		return
+	}
+
+	if len(inputPassword) == 0 {
+		response.Fail(60002, "请输入密码", c)
+		return
+	}
+
+	dbUser, err := sysUserService.GetUserByAccount(inputAccount)
+	if err != nil {
+		response.Fail(60002, "你输入的账号和密码有误", c)
+		return
+	}
+
+	// 这个时候就判断用户输入密码和数据库的密码是否一致
+	// inputPassword = utils.Md5(123456) = 2ec9f77f1cde809e48fabac5ec2b8888
+	// dbUser.Password = 2ec9f77f1cde809e48fabac5ec2b8888
+	if dbUser != nil && dbUser.Password == adr.Md5Slat(inputPassword, dbUser.Slat) {
+		// 根据用户id查询用户的角色
+		userRoles, _ := sysUserRolesService.SelectUserRoles(dbUser.ID)
+		if len(userRoles) > 0 {
+			// 用户信息生成token -----把
+			token := api.generaterToken(c, userRoles[0].RoleCode, userRoles[0].ID, dbUser)
+			// 根据用户查询菜单信息
+			roleMenus, _ := sysRoleMenusService.SelectRoleMenus(userRoles[0].ID)
+			// 根据用户id查询用户的角色的权限
+			permissions, _ := sysRoleApisService.SelectRoleApis(userRoles[0].ID)
+
+			// 这个uuid是用于挤下线使用 ,//--------------------------增加代码
+			uuid := utils.GetUUID()
+			userIdStr := strconv.FormatUint(uint64(dbUser.ID), 10)
+			global.Cache.Set("LocalCache:Login:"+userIdStr, uuid, cache.NoExpiration)
+
+			// 查询返回
+			response.Ok(map[string]any{
+				"user":        dbUser,
+				"token":       token,
+				"roles":       userRoles,//-------------------增加代码
+				"uuid":        uuid,
+				"roleMenus":   sysMenuService.Tree(roleMenus, 0),
+				"permissions": permissions}, c)
+		} else {
+			// 查询返回--
+			response.Fail(80001, "你暂无授权信息", c)
+		}
+	} else {
+		response.Fail(60002, "你输入的账号和密码有误", c)
+	}
+}
+```
+
+然后在前端的状态管理中增加uuid管理
+
+```js
+import { defineStore } from 'pinia'
+import request from '@/request'
+import router from '@/router'
+import { handleLogout } from '../api/logout.js'
+import { ChangeRoleIdMenus } from '../api/sysroles.js'
+import {useSkeletonStore} from '@/stores/skeleton.js'
+import {useMenuTabStore} from '@/stores/menuTab.js'
+
+
+
+export const useUserStore = defineStore('user', {
+  // 定义状态
+  state: () => ({
+    routerLoaded:true,
+    // 登录用户
+    user: {},
+    username: '',
+    userId: '',
+    // 挤下线使用
+    uuid:"",
+    // 登录token
+    token: '',
+    // 当前角色
+    currRoleName:"",
+    currRoleCode:"",
+    currRoleId:0,
+    // 获取用户对应的角色列表
+    roles:[],
+    // 获取角色对应的权限
+    permissions:[],
+    // 获取角色对应的菜单
+    menuTree:[]
+  }),
+
+  // 就是一种计算属性的机制，定义的是函数，使用的是属性就相当于computed
+  getters:{
+    isLogin(state){
+      return state.token ? true : false
+    },
+
+    roleName(state){
+      return state.roles && state.roles.map(r=>r.name).join(",")
+    },
+
+    permissionCode(state){
+      return state.permissions &&  state.permissions.map(r=>r.code)
+    },
+    
+    permissionPath(state){
+      return state.permissions &&  state.permissions.map(r=>r.path)
+    }
+  },
+
+  // 定义动作
+  actions: {
+
+   /* 设置token */ 
+   setToken(newtoken){
+      this.token = newtoken
+   },
+
+   /* 获取token*/
+   getToken(){
+    return this.token
+   },
+
+   // 改变用户角色的时候把对应菜单和权限查询出来，进行覆盖---更改
+   async handlePianaRole(roleId,roleName,roleCode){
+      if(roleId > 0 && roleId != this.currRoleId){
+        this.currRoleId = roleId
+        this.currRoleName = roleName;
+        this.currRoleCode = roleCode
+      }
+
+      // 获取到导航菜单，切换以后直接全部清空掉
+      const menuTabStore = useMenuTabStore();
+      menuTabStore.clear()
+      
+      // 请求服务端--根据切换的角色找到角色对应的权限和菜单
+      const resp = await ChangeRoleIdMenus({roleId:this.currRoleId})
+      // 对应的权限和菜单进行覆盖
+      this.permissions = resp.data.permissions
+      this.menuTree = resp.data.roleMenus.sort((a,b)=>a.sort-b.sort)
+      if(roleId > 0){
+        // 激活菜单中的第一个路由
+        router.push(this.menuTree[0].path)
+      }
+   },
+   
+   /* 登出*/
+   async logout (){
+      // 执行服务端退出
+      await handleLogout()
+      // 清除状态信息
+      this.token = ''
+      this.user = {}
+      this.username = ''
+      this.userId = ''
+      this.uuid = ''
+      this.roles = []
+      this.permissions = []
+      this.menuTree = []
+      // 清除自身的本地存储
+      localStorage.removeItem("ksd-kva-language")
+      localStorage.removeItem("kva-pinia-userstore")
+      sessionStorage.removeItem("kva-pinia-skeleton")
+      // 把骨架屏的状态恢复到true的状态
+      useSkeletonStore().setLoading(true)
+      localStorage.removeItem("isWhitelist")
+      location.reload()
+      // 然后跳转到登录
+      router.push({ name: 'Login', replace: true })
+  },
+
+  /* 登录*/
+  async toLogin(loginUser){
+      // 查询用户信息，角色，权限，角色对应菜单
+      const resp = await request.post("login/toLogin", loginUser,{noToken:true})
+      // 这个会回退，回退登录页
+      var { user ,token,roles,permissions,roleMenus,uuid } = resp.data
+      // 登录成功以后获取到菜单信息, 这里要调用一
+      this.menuTree = roleMenus
+      // 把数据放入到状态管理中
+      this.user = user
+      this.userId = user.id
+      this.username = user.username
+      this.token = token
+      this.uuid = uuid
+      this.roles = roles
+      this.permissions = permissions
+      // 把roles列表中的角色的第一个作为，当前角色
+      this.currRoleId = roles && roles.length > 0 ? roles[0].id : 0
+      this.currRoleName = roles && roles.length > 0 ? roles[0].roleName : ""
+      this.currRoleCode = roles && roles.length > 0 ? roles[0].roleCode : ""
+
+      return Promise.resolve(resp)
+    }
+  },
+  persist: {
+    key: 'kva-pinia-userstore',
+    storage: localStorage,//sessionStorage
+  }
+})
+```
+
+然后在每次请求接口的时候把uuid携带上即可。修改“request/index.js即可，如下：
+
+```js
+// 1: 导入axios异步请求组件
+import axios from "axios";
+// 2: 把axios请求的配置剥离成一个config/index.js的文件
+import axiosConfig from "./config";
+// 3: 获取路由对象--原因是：在加载的过程中先加载的pinia所以不能useRouter机制。
+import router from '@/router'
+// 4: elementplus消息框
+import KVA from "@/utils/kva.js";
+// 5: 获取登录的token信息
+import { useUserStore } from '@/stores/user.js'
+// 6: 然后创建一个axios的实例
+const request = axios.create({ ...axiosConfig })
+
+// request request请求拦截器
+request.interceptors.request.use(
+    function(config){
+        // 这个判断就是为了那些不需要token接口做开关处理，比如：登录，检测等
+        if(!config.noToken){
+             // 如果 token为空，说明没有登录。你就要去登录了
+            const userStore = useUserStore()
+            const isLogin = userStore.isLogin
+            if(!isLogin){
+                router.push("/login")
+                return
+            }else{
+                // 90b7d374acc5476eb9beabe9373b2640
+                // 这里给请求头增加参数.request--header，在服务端可以通过request的header可以获取到对应参数
+                // 比如go: c.GetHeader("Authorization")
+                // 比如java: request.getHeader("Authorization")
+                config.headers.Authorization = userStore.getToken()
+                config.headers.KsdUUID = userStore.uuid
+            }
+        }
+        return config;
+    },function(error){
+        // 判断请求超时
+        if ( error.code === "ECONNABORTED" && error.message.indexOf("timeout") !== -1) {
+            KVA.notifyError('请求超时');
+            // 这里为啥不写return
+        }
+        return Promise.reject(error);
+    }
+);
+
+// request response 响应拦截器
+request.interceptors.response.use(async (response) => {
+    // 在这里应该可以获取服务端传递过来头部信息
+    // 开始续期
+    if(response.headers["new-authorization"]){
+        const userStore = useUserStore()   
+        userStore.setToken(response.headers["new-authorization"])  
+    }
+
+    // cashbin的权限拦截处理
+    if(response.data?.code === 80001){
+        KVA.notifyError(response.data.message);
+        // 如果你想调整页面，就把下面注释打开
+        //router.push("/nopermission")
+        return     
+    }
+
+    if(response.data?.code === 20000){
+        return response.data;
+    }else{
+        // 所有得服务端得错误提示，全部在这里进行处理
+        if (response.data?.message) {
+            KVA.notifyError(response.data.message);
+        }
+
+        // 包括: 没登录，黑名单，挤下线
+        if(response.data.code === 4001 ){
+            const userStore = useUserStore()   
+            userStore.logout()
+            return Promise.reject(response.data); 
+        }   
+
+        // 返回接口返回的错误信息
+        return Promise.reject(response.data); 
+    }
+},(err) => {
+    if (err && err.response) {
+        switch (err.response.status) {
+            case 400:
+                err.message = "请求错误";
+                break;
+            case 401:
+                err.message = "未授权，请登录";
+                break;
+            case 403:
+                err.message = "拒绝访问";
+                break;
+            case 404:
+                err.message = `请求地址出错: ${err.response.config.url}`;
+                break;
+            case 408:
+                err.message = "请求超时";
+                break;
+            case 500:
+                err.message = "服务器内部错误";
+                break;
+            case 501:
+                err.message = "服务未实现";
+                break;
+            case 502:
+                err.message = "网关错误";
+                break;
+            case 503:
+                err.message = "服务不可用";
+                break;
+            case 504:
+                err.message = "网关超时";
+                break;
+            case 505:
+                err.message = "HTTP版本不受支持";
+                break;
+            default:
+        }
+    }
+    if (err.message) {
+        KVA.notifyError(err.message);
+    }
+     // 判断请求超时
+    if ( err.code === "ECONNABORTED" && err.message.indexOf("timeout") !== -1) {
+        KVA.notifyError('服务已经离开地球表面，刷新或者重试...');
+    }
+    // 返回接口返回的错误信息
+    return Promise.reject(err); 
+})
+  
+export default request
+```
+
+然后在jwt.go中进行比较即可
+
+```go
+// 1: 导入axios异步请求组件
+import axios from "axios";
+// 2: 把axios请求的配置剥离成一个config/index.js的文件
+import axiosConfig from "./config";
+// 3: 获取路由对象--原因是：在加载的过程中先加载的pinia所以不能useRouter机制。
+import router from '@/router'
+// 4: elementplus消息框
+import KVA from "@/utils/kva.js";
+// 5: 获取登录的token信息
+import { useUserStore } from '@/stores/user.js'
+// 6: 然后创建一个axios的实例
+const request = axios.create({ ...axiosConfig })
+
+// request request请求拦截器
+request.interceptors.request.use(
+    function(config){
+        // 这个判断就是为了那些不需要token接口做开关处理，比如：登录，检测等
+        if(!config.noToken){
+             // 如果 token为空，说明没有登录。你就要去登录了
+            const userStore = useUserStore()
+            const isLogin = userStore.isLogin
+            if(!isLogin){
+                router.push("/login")
+                return
+            }else{
+                // 90b7d374acc5476eb9beabe9373b2640
+                // 这里给请求头增加参数.request--header，在服务端可以通过request的header可以获取到对应参数
+                // 比如go: c.GetHeader("Authorization")
+                // 比如java: request.getHeader("Authorization")
+                config.headers.Authorization = userStore.getToken()
+                config.headers.KsdUUID = userStore.uuid
+            }
+        }
+        return config;
+    },function(error){
+        // 判断请求超时
+        if ( error.code === "ECONNABORTED" && error.message.indexOf("timeout") !== -1) {
+            KVA.notifyError('请求超时');
+            // 这里为啥不写return
+        }
+        return Promise.reject(error);
+    }
+);
+
+// request response 响应拦截器
+request.interceptors.response.use(async (response) => {
+    // 在这里应该可以获取服务端传递过来头部信息
+    // 开始续期
+    if(response.headers["new-authorization"]){
+        const userStore = useUserStore()   
+        userStore.setToken(response.headers["new-authorization"])  
+    }
+
+     // 包括: 没登录，黑名单，挤下线
+     if(response.data.code === 4001 ){
+        KVA.notifyError(response.data.message);
+        const userStore = useUserStore()   
+        userStore.logout() 
+        return
+    }   
+
+
+    // cashbin的权限拦截处理
+    if(response.data?.code === 80001){
+        KVA.notifyError(response.data.message);
+        // 如果你想调整页面，就把下面注释打开
+        //router.push("/nopermission")
+        return response.data;
+    }
+
+    if(response.data?.code === 20000){
+        return response.data;
+    }else{
+        // 所有得服务端得错误提示，全部在这里进行处理
+        if (response.data?.message) {
+            KVA.notifyError(response.data.message);
+        }
+        // 返回接口返回的错误信息
+        return Promise.reject(response.data); 
+    }
+},(err) => {
+    if (err && err.response) {
+        switch (err.response.status) {
+            case 400:
+                err.message = "请求错误";
+                break;
+            case 401:
+                err.message = "未授权，请登录";
+                break;
+            case 403:
+                err.message = "拒绝访问";
+                break;
+            case 404:
+                err.message = `请求地址出错: ${err.response.config.url}`;
+                break;
+            case 408:
+                err.message = "请求超时";
+                break;
+            case 500:
+                err.message = "服务器内部错误";
+                break;
+            case 501:
+                err.message = "服务未实现";
+                break;
+            case 502:
+                err.message = "网关错误";
+                break;
+            case 503:
+                err.message = "服务不可用";
+                break;
+            case 504:
+                err.message = "网关超时";
+                break;
+            case 505:
+                err.message = "HTTP版本不受支持";
+                break;
+            default:
+        }
+    }
+    if (err.message) {
+        KVA.notifyError(err.message);
+    }
+     // 判断请求超时
+    if ( err.code === "ECONNABORTED" && err.message.indexOf("timeout") !== -1) {
+        KVA.notifyError('服务已经离开地球表面，刷新或者重试...');
+    }
+    // 返回接口返回的错误信息
+    return Promise.reject(err); 
+})
+  
+export default request
+```
+
+## 退出的时候记得清楚缓存
+
+api/v1/login/logout.go如下：
+
+```go
+package login
+
+import (
+	"github.com/gin-gonic/gin"
+	"strconv"
+	"xkginweb/commons/jwtgo"
+	"xkginweb/commons/response"
+	"xkginweb/global"
+	"xkginweb/model/entity/jwt"
+)
+
+// 登录业务
+type LogOutApi struct{}
+
+// 退出接口
+func (api *LogOutApi) ToLogout(c *gin.Context) {
+	// 获取头部的token信息
+	token := c.GetHeader("Authorization")
+	if token == "" {
+		response.Fail(401, "请求未携带token，无权限访问", c)
+		return
+	}
+
+	// 同时删除缓存中的uuid的信息
+	customClaims, _ := jwtgo.GetClaims(c)
+	userIdStr := strconv.FormatUint(uint64(customClaims.UserId), 10)
+	global.Cache.Delete("LocalCache:Login:" + userIdStr)
+
+	// 退出的token,加入到黑名单中
+	err := jwtService.JsonInBlacklist(jwt.JwtBlacklist{Jwt: token})
+	// 保存失败会进到到错误
+	if err != nil {
+		response.Fail(401, "token作废失败", c)
+		return
+	}
+
+	// 如果保存到黑名单中说明,已经可以告知前端可以进行执行清理动作了
+	response.Ok("token作废成功!", c)
+}
+
+```
+
+
+
+
+
+# 指定用户下线
+
+直接把用户的状态清空即可。
+
+
+
+# casbin
+
+
+
+
+
+# Go的项目发布和部署
+
+
+
+## 01、准备工作
+
+- 准备一台阿里云服务器
+- 开放8080的安全组
+
+## 02、新建一个web工程
+
+### 安装
+
+要安装 Gin 软件包，需要先安装 Go 并设置 Go 工作区。
+
+1.下载并安装 gin：
+
+```sh
+go get -u github.com/gin-gonic/gin
+```
+
+2.将 gin 引入到代码中：
+
+```go
+import "github.com/gin-gonic/gin"
+```
+
+### 代码
+
+```go
+package main
+
+import "github.com/gin-gonic/gin"
+
+func main() {
+	engine := gin.Default()
+	engine.GET("/", func(context *gin.Context) {
+		context.JSON(200, gin.H{"code": 200, "msg": "server is success"})
+	})
+	engine.Run(":8080")
+}
+
+```
+
+执行
+
+```
+go run main.go
+```
+
+### 开始编译
+
+mac  电脑执行
+
+```go
+#编译 Linux 64位可执行程序：
+GOOS=linux GOARCH=amd64 go build main.go
+GOOS=linux GOARCH=arm64 go build main.go
+#编译Windows  64位可执行程序：
+GOOS=windows GOARCH=amd64 go build main.go
+GOOS=windows GOARCH=arm64 go build main.go
+#编译 MacOS 64位可执行程序
+GOOS=darwin GOARCH=amd64 go build main.go
+GOOS=darwin GOARCH=arm64 go build main.go
+```
+
+windows执行如下：如果报错执行下面
+
+```go
+set CGO_ENABLED=0
+set GOARCH=amd64
+set GOOS=windows
+```
+
+```go
+go build main.go
+```
+
+Linux
+
+```sh
+chmod +x main
+./main
+#或者
+nohup ./main &
+```
+
+windows
+
+直接双击打开main.exe即可。
+
+
+
+# Go的项目发布和部署
+
+## 01、准备工作
+
+- 云服务器
+  - 阿里云，腾讯云，华为云
+  - 自己购买服务器和（电信，移动，联通）进行服务器托管
+  - 内网穿透 （花生壳）
+
+- 准备一个项目
+  - go
+  - java
+
+- 安全组
+  - 默认情况下，服务器都有防火墙。默认大部分服务在不设置的情况都是只能允许本机访问。但是你现在要暴露服务给外部都调用。
+
+
+
+
+# 02、购买云服务—阿里云
+
+## 01、注册和登录
+
+- https://www.aliyun.com/?spm=5176.12901015-2.0.0.37404b84FqcBlg
+- 登录注册地址：https://account.aliyun.com/login/login.htm
+
+## 02、购买服务器
+
+![image-20230903201713828](images/image-20230903201713828.png)
+
+![image-20230903201746238](images/image-20230903201746238.png)
+
+
+
+![image-20230903202310333](images/image-20230903202310333.png)
+
+![image-20230903202328980](images/image-20230903202328980.png)
+
+下单完成以后。就进入到控制面板。你可以看到服务实例如下：
+
+![image-20230903202459312](images/image-20230903202459312.png)
+
+
+
+
+
+## 03、获取到公网IP
+
+![image-20230903202540553](images/image-20230903202540553.png)
+
+目的就是为了获取这个公网IP：116.62.169.76
+
+
+
+
+
+# 03、如何连接云服务器呢？
+
+## 03-01、进入云服务器
+
+使用客户端工具，xshell/finalshell/golang的提供ssh的链接工具
+
+## 03-02、finalshell链接云服务器
+
+Windows版下载地址:
+http://www.hostbuf.com/downloads/finalshell_install.exe
+
+macOS版下载地址:
+http://www.hostbuf.com/downloads/finalshell_install.pkg
+
+### windows的finallshell如何连接云服务器呢？
+
+![image-20230903203240581](images/image-20230903203240581.png)
+
+
+
+![image-20230903203316020](images/image-20230903203316020.png)
+
+![image-20230903203509648](images/image-20230903203509648.png)
+
+然后就进入到服务器如下：
+
+![image-20230903203527952](images/image-20230903203527952.png)
+
+然后执行系统组件的更新。
+
+```sh
+yum update
+```
+
+
+
+## 03-03、golang开发工具如何连接远程服务器
+
+![image-20230903204149771](images/image-20230903204149771.png)
+
+然后找到菜单栏中：【tools】—【start ssh session】的选项，点击即可：
+
+![image-20230903204258094](images/image-20230903204258094.png)
+
+然后会出现下面的控制台：
+
+![image-20230903204526976](images/image-20230903204526976.png)
+
+这样就可以和xshell和finalshell一样可以操作远程服务器了。
+
+
+
+
+
+# 04、如何把本地项目和或者上传到云服务器呢？
+
+## 1：lrzsz
+
+```
+yum install lrzsz
+```
+
+rz ：是负责把本机系统重文件传递到远程服务器
+
+sz ：是负责本远程服务器文件下载到本机系统
+
+## 2： FileZilla
+
+https://2t6y.mydown.com/tianji/child/f690.html?sfrom=166&DTS=1&keyID=123952
+
+## 03、finallshell
+
+直接把文件拖拽到服务器即可。可以完成后续大部分本机系统文件上传到远程服务器的操作和需求。
+
+
+
+
+
+# 05、开放安全组接口
+
+大家与没发现、我们可以通过xshell/finallshell/golang提供ssh工具都能够很快速的链接到服务远程服务器。然后进行相关的环境安装和文件的传输工作。
+
+在前面我们提过我们购买服务器有一个防火墙，默认是打开的。那你为什么可以直接连接上呢？
+
+- 原因很简单：因为你购买的云服务器。默认情况，云服务器在它安全组下面已经把ssh的协议默认端口22已经打开了。你才可以进行远程连接和传递文件。
+
+
+
+## 如何配置和开放我们服务器安全组呢？
+
+![image-20230903205848651](images/image-20230903205848651.png)
+
+![image-20230903210244791](images/image-20230903210244791.png)
+
+注意：未来你项目中所以的服务(gin/mysql/redis/nginx/kafka)都会有一个端口（8080、3306，6937，80，9000） ，这些服务器未来都把它安装和运行到你远程服务器。但是如果你服务器中这些服务（gin/mysql/redis/nginx/kafka)）要对外可以访问到。就必须在远程服务器的安全组中去把这些服务对应的端口进行配置。代表这些服务端口可以被外部进行访问和交互。
+
+
+
+
+
+# 06、简单工程的发布和部署
+
+
+
+## 06-01、新建一个web工程
+
+![image-20230903210703354](images/image-20230903210703354-1693746423995-1.png)
+
+![image-20230903210723542](images/image-20230903210723542.png)
+
+然后点击创建即可。
+
+然后新建一个一个gomodule文件
+
+![image-20230903210750312](images/image-20230903210750312.png)
+
+然后在file进行项目工程的环境设置
+
+![image-20230903210817974](images/image-20230903210817974.png)
+
+环境的值是：`GOPROXY=https://goproxy.io,direct`  ,然后点击应用和ok即可。
+
+
+
+## 06-02、安装
+
+要安装 Gin 软件包，需要先安装 Go 并设置 Go 工作区。
+
+1.下载并安装 gin：
+
+```sh
+go get -u github.com/gin-gonic/gin
+```
+
+2.将 gin 引入到代码中：
+
+```go
+import "github.com/gin-gonic/gin"
+```
+
+### 代码
+
+```go
+package main
+
+import "github.com/gin-gonic/gin"
+
+func main() {
+	// 创建一个gin的web服务
+	engine := gin.Default()
+	// 开始定义个路由
+	engine.GET("/", func(context *gin.Context) {
+		context.JSON(200, gin.H{"code": 200, "msg": "server is success"})
+	})
+	//启动服务端口是：8080 .注意：8080前面有一个冒号:
+	engine.Run(":8080")
+}
+
+```
+
+执行
+
+```
+go run main.go
+```
+
+## 06-03、项目开始编译
+
+### mac/linux  系统执行
+
+```go
+#编译 Linux 64位可执行程序：
+GOOS=linux GOARCH=amd64 go build main.go
+GOOS=linux GOARCH=arm64 go build main.go
+#编译Windows  64位可执行程序：
+GOOS=windows GOARCH=amd64 go build main.go
+GOOS=windows GOARCH=arm64 go build main.go
+#编译 MacOS 64位可执行程序
+GOOS=darwin GOARCH=amd64 go build main.go
+GOOS=darwin GOARCH=arm64 go build main.go
+```
+
+### windows打包成windows的服务，如下
+
+```go
+set CGO_ENABLED=0
+set GOARCH=amd64
+set GOOS=windows
+go build main.go
+```
+
+打包成功以后。会在你工程目录下成功一个main.exe文件，就说明打包成功了
+
+### Windows打包Linux服务，如下
+
+```go
+set CGO_ENABLED=0
+set GOARCH=amd64
+set GOOS=linux
+go build main.go
+```
+
+#### 为什么要指定set GOOS=linux，
+
+- 因为你开发的时候是在windows系统，打包也是在windows中。所以如果你直接去执行 go build main.go的时候，只会生成windows可- 执行文件。也就只会生成main.exe。exe 是windows的可执行文件。 linux根本就不认识。所以比如果要把项目部署到linux服务器上的。其实本应该你的操作是在必须在你远程服务器工作go环境。然后把项目上传到远程服务器，然后在执行 go build main.go就生成linux的可执行文件main (无后缀)。如果这样操作那非常的繁琐
+- 因为go项目发布到远程服务器如果是linux系统的话，其实是不需要安装go的环境页可以运行项目。所以我们能够在windows直接能够完成linux包的构建。那么我们是不是就可以省去在远程服务器安装go环境，然后在打包的过程。
+
+
+
+### 打包以后的可执行文件认识
+
+-  [main.exe](C:\Users\zxc\go\ginweb\main.exe)  : 这个是windows下的可执行文件
+
+-  main： 这个是linux下的可执行文件 
+
+可执行文件：就文件里提供一个程序入口。并且已经把当前项目工程下的所有.go结尾的文件全部编译成我们操作系统能够运行和识别的文件。然后压缩到这个文件中。你只要启动这个文件，那么你开放系统就可以运行起来了。
+
+##  06-04、指定名字打包
+
+```sh
+go build -o server
+```
+
+## 06-05、linux 发布和部署服务
+
+### 1： 新建一个/www
+
+```sh
+mkdir -p /www/ginweb
+cd /www/ginweb
+```
+
+- mkdir -p /www/ginweb  递归创建文件夹
+- cd /www/ginweb  进入指定的文件夹
+
+### 2:   然后把项目的可执行文件上传到/www/ginweb
+
+使用finalshell直接把main的可执行文件拖拽到/www目录即可。
+
+### 3:  可执行文件授予执行权限
+
+```sh
+chmod +x main
+```
+
+### 4：启动 （占用式启动）
+
+```sh
+./main
+```
+
+如下
+
+![image-20230903213658482](images/image-20230903213658482.png)
+
+如果看到这个结果的说明你服务已经启动成功，如果要退出多按1或者多次：ctrl+c
+
+这种占用式的，启动这个服务就不能去做其它的工作和事情呢，获取如果finalshell的连接会话关闭了。你服务器页会自动关闭。其实我们发布和部署希望不管会话关闭还是操作都应该让服务一直运行着。
+
+### 5：守护方式启动 (后台方式启动)
+
+```sh
+nohup ./main &
+```
+
+### 6：然后执行访问（重点）
+
+http://116.62.169.76:8080 
+
+之所以能够把访问。是因为云服务中关于8080这个服务的房间已经对外开放了意思就是：8080这个端口在云服务器的安全组中已经公开了。
+
+## 06-06、windows系统的发布和部署
+
+1： 直接把main.exe上传到windows服务器
+
+2： 直接双击打开main.exe即可。
+
+
+
+## 07、小结
+
+- 云服务购买，记得对应服务的端口要在安全组就进行开放
+- 打包的记得在windows指定goos=linux
+- linux系统运行go项目不需要安装go环境
+
+
+
+
+
+# Go的项目发布和部署-深入探索
+
+## 01、打包命令
+
+```sh
+go build [-o 输出名] [-i] [编译标记] [包名]
+```
+
+- 如果参数为`XX.go`文件或文件列表，则编译为一个个单独的包。
+- 当编译单个`main`包（文件），则生成可执行文件。
+- 当编译单个或多个包非主包时，只构建编译包，但丢弃生成的对象（`.a`），仅用作检查包可以构建。
+- 当编译包时，会自动忽略`_test.go`的测试文件。
+
+## 02、打包的方式
+
+```
+go build ---- 以工程名作为打包名 生成可执行文件的名字是工程名
+go build . ---- 以工程名作为打包名, 生成可执行文件的名字是工程名
+go build main.go ------ 以工程名入口文件作为打包。生成可执行文件的名字是：main
+go build hello.go ------这个就是一个编译，在实际就普通打包，没有太大作用
+go build -o server ---- 指定名字打包，生成的linux的可执行文件,可行文件的名字是：server
+```
+
+```
+1. 普通包 【非main包】
+go build add.go 【编译add.go,不生成exe执行文件】
+go build -o add.exe add.go 【指定生成exe执行文件，但是不能运行此文件，不是main包】
+
+2. main包【package main】
+go build main.go 【生成exe执行文件】
+go build -o main.exe main.go 【指定生成main.exe执行文件】
+
+3. 项目文件夹下有多个文件
+进入文件的目录
+go build 【默认编译当前目录下的所有go文件】
+go build add.go subtraction.go 【编译add.go 和 subtraction.go】
+
+注意：
+1. 如果是普通包，当你执行go build之后，它不会产生任何文件。【非main包】
+
+2. 如果是main包，当你执行go
+build之后，它就会在当前目录下生成一个可执行文件exe。如果你需要在$GOPATH/bin下生成相应的文件，需要执行go
+install，或者使用go build -o 路径/xxx.exe xxx.go
+
+3. 如果某个项目文件夹下有多个文件，而你只想编译某个文件，就可在go build之后加上文件名，例如go build
+xxx.go；go build命令默认会编译当前目录下的所有go文件。
+
+4. 你也可以指定编译输出的文件名。我们可以指定go build -o
+xxxx.exe，默认情况是你的package名（main包），或者是第一个源文件的文件名（main包）。
+
+5.go build会忽略目录下以“_”或“.”开头的go文件。
+```
+
+这个例子就是告诉我们一个逻辑，在开放中打包尽量使用go build -o 
+
+```sh
+// 从main.go开始打包
+go build -o ginserver main.go ---- 从main.go开始打包，打包生成ginserver
+go build -o ginserver.exe main.go ---- 从main.go开始打包，打包生成ginserver
+// 从工程下开始打包
+go build -o ginserver ---- 从main.go开始打包，打包生成ginserver
+go build -o ginserver.exe---- 从main.go开始打包，打包生成ginserver
+```
+
+## 03、通用参数
+
+```go
+-a
+    完全编译，不理会-i产生的.a文件(文件会比不带-a的编译出来要大？)
+-n
+    仅打印输出build需要的命令，不执行build动作（少用）。
+-p n
+    开多少核cpu来并行编译，默认为本机CPU核数（少用）。
+-race
+    同时检测数据竞争状态，只支持 linux/amd64, freebsd/amd64, darwin/amd64 和 windows/amd64.
+-msan
+    启用与内存消毒器的互操作。仅支持linux / amd64，并且只用Clang / LLVM作为主机C编译器（少用）。
+-v
+    打印出被编译的包名（少用）.
+-work
+    打印临时工作目录的名称，并在退出时不删除它（少用）。
+-x
+    同时打印输出执行的命令名（-n）（少用）.
+-asmflags 'flag list'
+    传递每个go工具asm调用的参数（少用）
+-buildmode mode
+    编译模式（少用）
+    'go help buildmode'
+-compiler name
+    使用的编译器 == runtime.Compiler
+    (gccgo or gc)（少用）.
+-gccgoflags 'arg list'
+    gccgo 编译/链接器参数（少用）
+-gcflags 'arg list'
+    垃圾回收参数（少用）.
+-installsuffix suffix
+    ？？？？？？不明白
+    a suffix to use in the name of the package installation directory,
+    in order to keep output separate from default builds.
+    If using the -race flag, the install suffix is automatically set to race
+    or, if set explicitly, has _race appended to it.  Likewise for the -msan
+    flag.  Using a -buildmode option that requires non-default compile flags
+    has a similar effect.
+-ldflags 'flag list'
+    '-s -w': 压缩编译后的体积
+    -s: 去掉符号表
+    -w: 去掉调试信息，不能gdb调试了
+-linkshared
+    链接到以前使用创建的共享库
+    -buildmode=shared.
+-pkgdir dir
+    从指定位置，而不是通常的位置安装和加载所有软件包。例如，当使用非标准配置构建时，使用-pkgdir将生成的包保留在单独的位置。
+-tags 'tag list'
+    构建出带tag的版本.
+-toolexec 'cmd args'
+    ？？？？？？不明白
+    a program to use to invoke toolchain programs like vet and asm.
+    For example, instead of running asm, the go command will run
+    'cmd args /path/to/asm <arguments for asm>'.
+```
+
+
+
+## 总结
+
+打包时候尽量使用如下的方式
+
+```sh
+set CGO_ENABLED=0
+set GOARCH=amd64
+set GOOS=linux/windows
+go build -o 目录/可执行文件的名字(.exe)  main.go
+go build -o 目录/可执行文件的名字(.exe) 
+```
+
+比如：
+
+```sh
+set CGO_ENABLED=0
+set GOARCH=amd64
+set GOOS=linux/windows
+go build -o build/ginweb(.exe)  main.go
+go build -o build/ginweb(.exe) 
+```
+
+# Go的项目发布和部署-后端
+
+
+
+## 01、先安装MSYQL
+
+本机系统中： [xkginweb](C:\Users\zxc\go\xkginweb) 是一个go语言开放的项目工程，其中你必须在发布的时候要分析这个工程依赖那些中间件。依赖：mysql/redis
+
+进入官网: https://mysql.com/downloads/
+
+![image-20230903222053991](images/image-20230903222053991.png)
+
+下载MYSQL5.7
+
+![image-20230903222103674](images/image-20230903222103674.png)
+
+### **Linux下载**
+
+
+
+### 1:  创建一个目录/www/mysql
+
+```sh
+cd /usr/local
+wget https://downloads.mysql.com/archives/get/p/23/file/mysql-5.7.40-linux-glibc2.12-x86_64.tar.gz
+```
+
+如果执行发现没有wget命令，你先安装一下 `yum install wget`
+
+### 2: 压缩包解压
+
+```
+ tar -zxvf  mysql-5.7.40-linux-glibc2.12-x86_64.tar.gz
+```
+
+![image-20230903222332391](images/image-20230903222332391.png)
+
+### 3: 修改目录名字和创建数据存储的目录
+
+ 修改名称将目录名称直接修改为mysql
+
+```sh
+mv mysql-5.7.40-linux-glibc2.12-x86_64  mysql
+```
+
+  (进入MySQL 目录) 创建数据目录 ：
+
+```sh
+cd /usr/local/mysql 
+mkdir -p /usr/local/mysql/data
+```
+
+ 给数据目录赋权限：
+
+```sh
+chmod -R 777 /usr/local/mysql/data
+```
+
+如果出现：chmod: invalid mode: ‘–R’  是减号 有问题，复制出来，在编辑下 减号
+
+![image-20230903222454555](images/image-20230903222454555.png)
+
+
+
+
+
+### 4: 创建用户 、组、并将用户加入组,修改配置文件
+
+```
+groupadd mysql
+useradd -g mysql mysql
+```
+
+修改MySQL 配置文件：` vi /etc/my.cnf`   （通过上下左右将光标移动到需要编辑的位置按i进行添加，完成按Esc结束编辑 输入":wq!" 保存退出）
+
+```cnf
+[mysqld]
+bind-address=0.0.0.0
+port=3306
+user=mysql
+basedir=/usr/local/mysql
+datadir=/usr/local/mysql/data
+socket=/tmp/mysql.sock
+log-error=/usr/local/mysql/data/mysql.err
+pid-file=/usr/local/mysql/data/mysql.pid
+#character config
+character_set_server=utf8mb4
+symbolic-links=0
+explicit_defaults_for_timestamp=true
+```
+
+### 5: 配置mysql服务，初始化数据目录和工作目录和查看密码
+
+**进入mysql bin 目录下面**
+
+```sh
+cd /usr/local/mysql/bin
+```
+
+ **执行命令**
+
+```sh
+./mysqld --initialize --user=mysql --datadir=/usr/local/mysql/data/ --basedir=/usr/local/mysql/
+```
+
+如果执行出现如下错误：
+
+>./mysqld: error while loading shared libraries: libaio.so.1: cannot open shared object file: No such file or directory
+>
+>请安装： yum install -y libaio 
+
+然后在执行上面的命令。
+
+
+
+查看mysql 密码（红线画的地方是密码）
+
+```sh
+cat /usr/local/mysql/data/mysql.err
+```
+
+![image-20230903222616543](images/image-20230903222616543.png)
+
+
+
+### 6: 添加软连接，并启动mysql服务
+
+```sh
+ln -s /usr/local/mysql/support-files/mysql.server /etc/init.d/mysql
+ln -s /usr/local/mysql/bin/mysql /usr/bin/mysql
+service mysql start
+```
+
+退出mysql是:  `exit`
+
+### 7： 登录mysql 修改密码，访问权限
+
+进入mysql  bin目录下面
+
+```sh
+-- 复制或者手动输入启动
+./mysql -hlocalhost -uroot -p
+-- 一步到位把密码抓出来启动
+./mysql -uroot -p$(awk '/temporary password/{print $NF}'  /usr/local/mysql/data/mysql.err)
+```
+
+![image-20230903222736305](images/image-20230903222736305.png)
+
+
+
+修改密码（设置密码尽量设置复杂一点，拒绝弱口令）
+
+```sql
+mysql > set password=password('mkxiaoer');
+mysql > flush privileges;
+```
+
+ 授予远程访问，方式1：
+
+```sh
+mysql > use mysql;
+mysql > update user set Host='%' where User='root';
+mysql > flush privileges;
+```
+
+ 授予远程访问，方式2：
+
+```sql
+mysql > grant all on *.* to root@'%' identified by 'mkxiaoer';
+mysql > flush privileges;
+```
+
+**==还有如果你是云服务器还要在安全组中请把mysql的端口：3306进行配置开放。==**
+
+
+
+## 02、在把xkginweb打包
+
+```sh
+set CGO_ENABLED=0
+set GOARCH=amd64
+set GOOS=linux
+go build -o build/xkginweb main.go
+```
+
+![image-20230903230521996](images/image-20230903230521996.png)
+
+注意：conf是我手动复制上去的
+
+
+
+## 03、把打包项目发布云服务器
+
+使用finalshell上传conf和xkginweb可执行到服务器/www/xkginweb目录下即可。
+
+![image-20230903230500531](images/image-20230903230500531.png)
+
+
+
+## 04、启动服务
+
+但是注意go项目是不会把资源目录自动打包到执行文件中，所以你必须手动的把资源目录和可行执行一起上传到服务器。
+
+```sh
+chmod +x xkginweb
+```
+
+启动
+
+```sh
+nohup ./xkginweb &
+> 16611 ----启动成功的进程id ,方便让你关闭服务的
+> oot@iZbp13fwzug417rudbljt3Z xkginweb]# nohup: 忽略输入并把输出追加到"nohup.out
+```
+
+查看
+
+```sh
+ps -ef | grep xkginweb
+root     16611  1312  0 23:02 pts/0    00:00:00 ./xkginweb
+root     17271  1312  0 23:02 pts/0    00:00:00 grep --color=auto xkginweb
+
+```
+
+关闭服务
+
+```sh
+kill -9 16611
+```
+
+
+
+# Go的项目发布和部署-前端
+
+发布前端项目，为什么还要nginx。你思考一个问题。
+
+我们在开放前端项目的时候，我们使用脚手架vite。它可以让前端具有服务性。其实就有端口可以让访问。但是前端项目一旦打包。这个服务性就自动丢失。因为前端打包最终会通过webpack把项目中所以的src下面的源码进行编译生成对应js文件。public 进行拷贝，然后把这些js文件和public生成的文件放入到一个dist目录。最后完成打包的过程。
+
+但是生成打包的内容，是不能直接只有服务性，你必须要依托一个外部的服务，才能让我们打包的前端项目继续运行。
+
+
+
+## **1:  先安装nginx**
+
+查看 ： 04、Nginx发布项目和部署.md
+
+## 2: web项目打包
+
+优化配置 vite.config.js
+
+```js
+import { fileURLToPath, URL } from 'node:url'
+import { defineConfig,loadEnv } from 'vite'
+import vue from '@vitejs/plugin-vue'
+import AutoImport from 'unplugin-auto-import/vite'
+import Components from 'unplugin-vue-components/vite'
+import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
+import { viteLogo } from './src/core/config'
+
+// https://vitejs.dev/config/
+export default defineConfig(({ command, mode }) => {
+  // 根据当前工作目录中的 `mode` 加载 .env 文件
+  // 设置第三个参数为 '' 来加载所有环境变量，而不管是否有 `VITE_` 前缀。
+  const env = loadEnv(mode, process.cwd(), '')
+  viteLogo(process.env)
+  return {
+    base: env.VITE_MODE === 'production' ? './' : '/',
+    // vite 配置
+    plugins: [
+      vue(),
+      AutoImport({
+        imports: ['vue','vue-router','pinia','vue-i18n'],
+        resolvers: [ElementPlusResolver()],
+      }),
+      Components({
+        resolvers: [ElementPlusResolver()],
+      })
+    ],
+    server:{
+      // 如果使用docker-compose开发模式，设置为false
+      open: true,
+      port: 8777,
+      proxy: {
+        // 把key的路径代理到target位置
+        [env.VITE_BASE_API]: { // 需要代理的路径   例如 '/api'
+          target: `${env.VITE_BASE_PATH}/`, // 代理到 目标路径
+          changeOrigin: true,
+          //rewrite: path => path.replace(new RegExp('^' + env.VITE_BASE_API), ''),
+        }
+      },
+    },
+     // 构建配置
+     build: {
+      // 输出目录，默认是 dist
+      outDir: 'dist',
+      // 是否开启 sourcemap
+      sourcemap: false,
+      // 是否开启压缩
+      minify: 'terser', // 可选值：'terser' | 'esbuild'
+      // 是否开启 brotli 压缩
+      brotli: true,
+      // 是否将模块提取到单独的 chunk 中，默认是 true
+      chunkSizeWarningLimit: 500,
+      // 是否提取 CSS 到单独的文件中
+      cssCodeSplit: true,
+      // 是否开启 CSS 压缩
+      cssMinify: true,
+      // 是否开启 CSS 去重
+      cssInlineLimit: 4096,
+      // 启用/禁用 esbuild 的 minification，如果设置为 false 则使用 Terser 进行 minification
+      target: 'es2018', // 可选值：'esnext' | 'es2020' | 'es2019' | 'es2018' | 'es2017' | 'es2016' | 'es2015' | 'es5'
+      // 是否开启 Rollup 的代码拆分功能
+      rollupOptions: {
+          output: {
+              manualChunks: {},
+          },
+      },
+      terserOptions: { 
+        compress: { // 打包时清除 console 和 debug 相关代码
+          drop_console: true,
+          drop_debugger: true,
+        },
+      },
+      // 是否开启增量式构建
+      // https://vitejs.dev/guide/build.html#incremental-build
+      incremental: false
+    },
+    resolve: {
+      alias: {
+        '@': fileURLToPath(new URL('./src', import.meta.url))
+      }
+    },
+    // 优化配置
+    optimizeDeps: {
+        // 是否将 Vue、React、@vueuse/core 和 @vueuse/head 作为外部依赖提取出来
+        include: ['vue', 'react', '@vueuse/core', '@vueuse/head','axios'],
+        // 是否开启预构建，将预构建后的代码提前注入到浏览器缓存中，以减少首次加载的时间
+        prebuild: false,
+    }
+  }
+})
+
+
+
+```
+
+然后执行打包
+
+```sh
+npm run build
+```
+
+然后生成一个dist目录如下：
+
+![image-20230903231551910](images/image-20230903231551910.png)
+
+但是这个目录，不具有服务性，因为打包以后就是一个纯纯静态页面和资源而已。所以你必须要找一个web服务器来运行它。这个web就是nginx
+
+
+
+### 4：上传dist文件的内容到nginx
+
+把dist打包中内容上传到 nginx的html目录覆盖即可。（/usr/local/nginx/html）目录下。
+
+然后执行即可。只要你不修改nginx的配置文件。是不需要重启nginx。你直接访问就可以看到我们web项目运行成功了。
+
+### 5： 访问前端项目
+
+http://116.62.169.76/#/login?path=/dashboard
+
+
+
+
+
+#  Go的项目发布和部署-api接口的配置
+
+
+
+但是你会发现你现在的web网站访问不了。api接口调用失败。原因是什么？
+
+- 本地环境
+  - .env.devepolmenet 
+    - vite -server proxy
+    - vite.config.js 
+      - /api  —— http://127.0.0.1:8990
+- 生成环境
+  - 生成环境就已经和vite没有半毛钱关系了。那个服务代理就对于打包以后的生产环境就没有任何意义了。
+  - 我的服务器接口路径就是：/api 它是一个相对路径。
+  - 相对路径是什么。相对访问路径。现在访问路径是： http://116.62.169.76
+    - 最终通过axios请求路径全部都是： http://116.62.169.76/api/role/save
+    - 最终通过axios请求路径全部都是： http://116.62.169.76/api/role/list
+
+大家发现没有。除非你的服务器启动一个80服务同时以/api开头。程序就可以正常的访问。否则都会失败。而现在我们系统提供接口服务是什么样子：http://116.62.169.76:8990/api/xxxxxxxxx
+
+
+
+如果能够让访问能正常调用接口服务，可以使用两种方式：
+
+## 第一种方式：修改.evn.production的的配置改成绝对路径
+
+```js
+ENV = 'production'
+
+# 前端vite项目的端口
+VITE_CLI_PORT = 8777
+# 服务前缀
+VITE_BASE_API = http://116.62.169.76:8990/api
+```
+
+- 直接把.evn.production中/api的相对路径，改成绝对路径。
+- 然后重新打包
+- 然后把ｎｇｉｎｘ的ｈｔｍｌ目录下的内容删掉，然后把ｄｉｓｔ生成新的上传上来。不需要重新
+- 直接访问即可
+- 可能会存在跨域的问题，需要在代码中去解决
+
+## **第二种方式：使用nginx服务代理**
+
+### 1： 进入nginx的配置目录
+
+```sh
+cd /usr/local/nginx/conf
+```
+
+### 2:  然后修改nginx.conf文件如下
+
+```json
+server {
+  location /api {
+     proxy_pass   http://127.0.0.1:8990/api;
+  }
+}
+```
+
+### 3: 注意改了配置文件一定要重启
+
+```json
+nginx -t --- 检查你修改的配置文件是否正确
+nginx -s reload  ---重新
+```
+
+### 4： 然后修改web工程中的.evn.production的配置如下
+
+```json
+ENV = 'production'
+# 前端vite项目的端口
+VITE_CLI_PORT = 8777
+# 服务前缀
+VITE_BASE_API = http://116.62.169.76
+```
+
+### 5: 然后重新打包
+
+```json
+npm run build
+```
+
+### 6: 然后打包的内容上传到nginx的html目录下
+
+记得上传之前把旧删掉在上传。
+
+# 安装Nginx服务
+
+Nginx安装
+
+nginx下载：http://nginx.org/en/download.html
+
+### 01、创建nginx服务器目录
+
+```
+mkdir -p /www/kuangstudy/nignx
+cd /www/kuangstudy/nignx
+```
+
+### 02、下载安装
+
+```
+wget http://nginx.org/download/nginx-1.20.1.tar.gz
+```
+
+### 03、安装编译工具及库文件
+
+```
+yum -y install make zlib zlib-devel gcc-c++ libtool  openssl openssl-devel
+```
+
+### 04、解压nginx
+
+```
+tar -zxvf nginx-1.20.1.tar.gz
+```
+
+### 05、创建nginx的临时目录
+
+```
+mkdir -p /var/temp/nginx
+```
+
+### 06、进入安装包目录
+
+```
+cd nginx-1.20.1
+```
+
+### 07、编译安装
+
+```
+./configure \
+--prefix=/usr/local/nginx \
+--pid-path=/var/run/nginx.pid \
+--lock-path=/var/lock/nginx.lock \
+--error-log-path=/var/log/nginx/error.log \
+--http-log-path=/var/log/nginx/access.log \
+--with-http_gzip_static_module \
+--http-client-body-temp-path=/var/temp/nginx/client \
+--http-proxy-temp-path=/var/temp/nginx/proxy \
+--http-fastcgi-temp-path=/var/temp/nginx/fastgi \
+--http-uwsgi-temp-path=/var/temp/nginx/uwsgi \
+--http-scgi-temp-path=/var/temp/nginx/scgi \
+--with-http_stub_status_module \
+--with-http_ssl_module \
+--with-http_stub_status_module
+```
+
+安装以后的目录信息
+
+```
+nginx path prefix: "/usr/local/nginx"  nginx binary file: "/usr/local/nginx/sbin/nginx"  nginx modules path: "/usr/local/nginx/modules"  nginx configuration prefix: "/usr/local/nginx/conf"  nginx configuration file: "/usr/local/nginx/conf/nginx.conf"  nginx pid file: "/var/run/nginx.pid"  nginx error log file: "/var/log/nginx/error.log"  nginx http access log file: "/var/log/nginx/access.log"  nginx http client request body temporary files: "/var/temp/nginx/client"  nginx http proxy temporary files: "/var/temp/nginx/proxy"  nginx http fastcgi temporary files: "/var/temp/nginx/fastgi"  nginx http uwsgi temporary files: "/var/temp/nginx/uwsgi"  nginx http scgi temporary files: "/var/temp/nginx/scgi"
+```
+
+![img](../../../../../../L_Learning/%25E6%25B5%258B%25E5%25BC%2580%25E8%25AF%25BE%25E7%25A8%258B/%25E7%258B%2582%25E7%25A5%259E/3-%25E9%25A1%25B9%25E7%259B%25AE%25E5%25AE%259E%25E6%2588%2598%2520-%2520GVA%25E5%2590%258E%25E5%258F%25B0%25E9%25A1%25B9%25E7%259B%25AE%25E7%25AE%25A1%25E7%2590%2586%25E5%25BC%2580%25E5%258F%2591/20230903%25EF%25BC%259A%25E7%25AC%25AC%25E5%259B%259B%25E5%258D%2581%25E4%25B8%2583%25E8%25AF%25BE%25EF%25BC%259A%25E8%2587%25AA%25E5%25BB%25BA%25E9%25A1%25B9%25E7%259B%25AE-%2520%25E9%25A1%25B9%25E7%259B%25AE%25E7%259A%2584%25E5%258F%2591%25E5%25B8%2583%25E5%2592%258C%25E9%2583%25A8%25E7%25BD%25B2/%25E9%25A1%25B9%25E7%259B%25AE%25E7%25AC%2594%25E8%25AE%25B0/assets/kuangstudy09f12de8-430a-417d-a5f1-b8bb772a5c0b.png)
+
+### 08、 make编译
+
+```
+make
+```
+
+### 09、 安装
+
+```
+make install
+```
+
+### 10、 进入sbin目录启动nginx
+
+```
+cd /usr/local/nginx/sbin
+```
+
+执行nginx启动
+
+```
+./nginx
+#停止：
+./nginx -s stop
+#重新加载：
+./nginx -s reload
+```
+
+### 11、打开浏览器，访问虚拟机所处内网ip即可打开nginx默认页面，显示如下便表示安装成功：
+
+```
+http://ip
+```
+
+### 12、注意事项
+
+1. 如果在云服务器安装，需要开启默认的nginx端口：80
+2. 如果在虚拟机安装，需要关闭防火墙
+3. 本地win或mac需要关闭防火墙
+4. nginx的安装目录是：/usr/local/nginx/sbin
+
+### 13、配置nginx的环境变量
+
+```
+vim /etc/profile
+```
+
+在文件的尾部追加如下：
+
+```
+export NGINX_HOME=/usr/local/nginx
+export PATH=$NGINX_HOME/sbin:$PATH
+```
+
+重启配置文件
+
+```
+source /etc/profile
+```
+
+# 01、安装Nginx服务集群发布和部署
+
+## 分析
+
+在项目发布和部署，我们其实会把开发好的go的web项目打包成可执行文件，然后运行在linux系统。一旦运行就会在系统进程里生成一个对应服务。然后可以访问。但是你思考过一个这样的问题。如果你的服务突然之间挂了。那么你网站是其实就立即出现无法访问的状况。
+
+所以在大部分的发布和部署的时候，我们都不会单节点运行，而是更多考虑使用集群的方式进行部署。
+
+- 其实早期的发布和部署，其实都停服去进行发布和部署，然后给与网站停服的标识。
+- 灰度交替的方式进行发布和部署（集群模式）
+  - 比如三个节点：1 2 3  ，先把服务1停止掉，然后在更新到最新，如果服务1运行没有任何问题，然后在停止第二服务器，以此类推。但是你不能全部停掉在更新，这个不建议。
+- jenkins进行发布和部署（开发阶段）（==即见即所得==）
+- 面向容器化的发布和部署（docker + k8s）
+
+## 01、准备工作
+
+1：准备服务器资源（32G 、64G） （但是有一个前提：必须在同机房才又意义）
+
+2： 准备web项目（单项目，微服务项目）
+
+3：服务环境（mysql/redis/nginx）
+
+
+
+## 02、单项目
+
+没有服务拆分，比如：用户服务（登录，注册）、订单服务、广告服务、内容服务、分类服务、搜索服务等等。全部都在一个项目里。不分开，
+
+**缺点：**
+
+1：可执行文件很大，占用服务器资源很多
+
+2：存在服务不隔离，如果一份服务出现了一次和故障，那么你整个体统就全部崩溃。
+
+**好处**
+
+1：发布方便，快捷
+
+
+
+## 03、微服务项目
+
+把服务全部进行拆分，独立成一个系统和服务来进行开发和部署。
+
+缺点：
+
+1：运维的难度增大，需求服务器资源也增多
+
+2：成本上升
+
+3：学习的成本也增大
+
+4：数据一致性也要考虑
+
+优点 ：
+
+1：服务直接是独立，出现异常和故障互补影响，
+
+
+
+## 04、web集群怎么规划和部署
+
+web集群：其实就把若个项目运行对外提供服务。要完成集群必须要找到：具有负载均衡的web中间件。这种中间件有如下：
+
+- httpd
+- etc
+- nginx (推荐)
+
+
+
+## 05、集群的规划和误区
+
+集群其实就把服务部署多份，然后使用 web中间件来进行负责均衡管理。你就可以看到集群切换效果了。通杀也也可以解决单点故障的问题。
+
+但是如何进行多服务的部署呢？
+
+- 单机部署 （单机部署多应用）
+- 多机部署 （交叉集群部署）
+
+但是不论单机部署多应用还是多机部署交叉的方式，你记住集群节点的部署和规划一定是在：同一个局域网（同一个ip段上）才又意义，才会快。最快肯定是单机部署多应用（全部安装在一个机器上）。
+
+==也就是要解决和一个误区。未来我开发了项目。我想要我的项目支持集群，也让我们的项目能支持并发和高可用。我就买一堆的云服务器让后进行发布和部署。你就以为就很快了==
+
+快就必须遵循几个规则：
+
+1：要么是自建服务器，公司会统一分配网关和ip段
+
+2：如果云服务器，建议大家买在一个区域，然后代码中全部使用内网ip而不是公网ip。
+
+
+
+
+
+## 06、集群带来的问题和思考
+
+1、集群部署的时候，一定是使用奇数节点，不要使用偶数。（3个集群基本开端）
+
+ 
+
+# 02、单机部署多应用的方式
+
+## 单机部署多应用
+
+1：什么情况下会使用单机部署多应用。
+
+- 项目的早期
+- 比较单一的系统
+- ==其实就一个标准：你项目收入和单台服务器成本是合理的。你都可以考虑使用单机部署多应用。==
+- 因为不需要考虑多服务器之间的沟通问题和维护问题。因为维护一个服务器比维护N个服务器要轻松很多。
+
+
+
+![image-20230910223849424](images/image-20230910223849424.png)
+
+## 1：准备工作
+
+把现有的项目修改三个端口（8081，8082,8083），然后打包三次。生成对应的三个这种服务的可执行文件
+
+```sh
+go build -o build/ginweb-8081 main.go
+go build -o build/ginweb-8082 main.go
+go build -o build/ginweb-8083 main.go
+```
+
+但是注意打包之前，一定要把代码中或者配置中的端口改好以后在打包。
+
+![image-20230910213442187](images/image-20230910213442187.png)
+
+## 2：然后分别把这三个可执行文件，上传到服务器上。
+
+然后赋予三个文件的可执行权限。
+
+```sh
+chmod +x /www/ginweb/ginweb-8081
+chmod +x /www/ginweb/ginweb-8082
+chmod +x /www/ginweb/ginweb-8083
+```
+
+## 3: 启动它们
+
+窗口1：
+
+```sh
+cd /www/ginweb
+./ginweb-8081
+```
+
+窗口2：
+
+```sh
+cd /www/ginweb
+./ginweb-8082
+```
+
+窗口3：
+
+```sh
+cd /www/ginweb
+./ginweb-8083
+```
+
+### **守护的方式(确定完毕以后，建议使用如下：)**
+
+```sh
+cd /www/ginweb
+nohup ./ginweb-8081 &
+nohup ./ginweb-8082 &
+nohup ./ginweb-8083 &
+```
+
+## 4: 然后测试它们三个服务器是否正常
+
+- http://120.55.71.124:8081
+
+- http://120.55.71.124:8082
+
+- http://120.55.71.124:8083
+
+## 5:  开始安装nginx 
+
+请看课件04、Nginx发布项目和部署.md 
+
+```sh
+# 启动
+nginx 
+# 重启
+nginx -s reload
+# 停止
+nginx -s stop
+# 检查配置是否正确
+nginx -t
+# 看安装目录
+nginx -V
+# 看帮助文档
+nginx -h
+
+```
+
+## 6: 开始配置nginx的集群映射
+
+默认配置：nginx 端口是：80
+
+nginx.conf
+
+```conf
+#user  nobody;
+worker_processes  1;
+
+#error_log  logs/error.log;
+#error_log  logs/error.log  notice;
+#error_log  logs/error.log  info;
+
+#pid        logs/nginx.pid;
+
+
+events {
+    worker_connections  1024;
+}
+
+
+http {
+    include       mime.types;
+    default_type  application/octet-stream;
+
+    #log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+    #                  '$status $body_bytes_sent "$http_referer" '
+    #                  '"$http_user_agent" "$http_x_forwarded_for"';
+
+    #access_log  logs/access.log  main;
+
+    sendfile        on;
+    #tcp_nopush     on;
+
+    #keepalive_timeout  0;
+    keepalive_timeout  65;
+
+    #gzip  on;
+    # 建议使用外部包含，防止破坏nginx.conf文件而造成报错
+    include web/*.conf;
+
+}
+
+```
+
+web/ginweb.conf如下：
+
+```json
+upstream goservers{
+   server 127.0.0.1:8081 weight=1;
+   server 127.0.0.1:8082 weight=2;
+   server 127.0.0.1:8083 weight=1;
+}
+
+server {
+   listen       80;
+   server_name  localhost;
+
+   # 主要是用来运行我们的web的后台项目
+   location / {
+       root   html;
+       index  index.html index.htm;
+   }
+      
+   #	 运行接口项目
+   location /api {
+        proxy_pass   http://127.0.0.1:8990/api;
+   }
+
+
+   location /web {
+        proxy_pass   http://goservers/;
+   }
+
+   
+
+#   error_page  404    /404.html;
+
+   # redirect server error pages to the static page /50x.html
+   #
+#   error_page   500 502 503 504  /50x.html;
+#   location = /50x.html {
+#       root   html;
+#   }
+
+}
+```
+
+
+
+# 03、二级域名的配置
+
+如果端口被占用的情况nginx可以服用端口吗？可以使用二级域名
+
+1： 因为一个端口一个服务默认情况，根访问只能是一个。如下：
+
+```json
+upstream goservers{
+   server 127.0.0.1:8081;
+   server 127.0.0.1:8082;
+   server 127.0.0.1:8083;
+}
+
+server {
+   listen       80;
+   server_name  localhost;
+
+   # 主要是用来运行我们的web的后台项目
+   location / {
+       root   html;
+       index  index.html index.htm;
+   }
+      
+   #	 运行接口项目
+   location /api {
+        proxy_pass   http://127.0.0.1:8990/api;
+   }
+
+
+   location /web {
+        proxy_pass   http://goservers/;
+   }
+
+   
+
+#   error_page  404    /404.html;
+
+   # redirect server error pages to the static page /50x.html
+   #
+#   error_page   500 502 503 504  /50x.html;
+#   location = /50x.html {
+#       root   html;
+#   }
+
+}
+```
+
+这个时候如果去访问 http://120.55.71.124:80(80可以不加，80是唯一一个不需要指定的端口。为了443是https也不需要)， 所以后续如果你继续想用80端口来访问你的服务。你必须使用location(路径来隔离)，所以就会出现
+
+- http://120.55.71.124 访问后台首页
+- http://120.55.71.124/api 访问后台的api接口服务
+- http://120.55.71.124/web 访问前台的web服务
+
+但是往往很多初学者会一个这样想法，能不能做到继续使用80端口。但是不使用location来隔离。注意在同一个listen和server_name的情况下是不可能做到的。除非在买个服务器。也可以使用server_name来进行隔离，比如采用二级域名
+
+```json
+upstream goservers{
+   server 127.0.0.1:8081;
+   server 127.0.0.1:8082;
+   server 127.0.0.1:8083;
+}
+
+server {
+   listen       80;
+   server_name  localhost;
+
+   # 主要是用来运行我们的web的后台项目
+   location / {
+       root   html;
+       index  index.html index.htm;
+   }
+      
+   #	 运行接口项目
+   location /api {
+        proxy_pass   http://127.0.0.1:8990/api;
+   }
+
+
+   location /web {
+        proxy_pass   http://goservers/;
+   }
+
+
+}
+
+
+server {
+   listen       80;
+   server_name  web.haitang.com;
+
+   # 主要是用来运行我们的web的后台项目
+   location / {
+       root   html;
+         proxy_pass   http://goservers/;
+   }
+      
+
+#   error_page  404    /404.html;
+
+   # redirect server error pages to the static page /50x.html
+   #
+#   error_page   500 502 503 504  /50x.html;
+#   location = /50x.html {
+#       root   html;
+#   }
+
+}
+
+server {
+   listen       80;
+   server_name  api.haitang.com;
+
+   # 主要是用来运行我们的web的后台项目
+   location / {
+       root   html;
+         proxy_pass   http://goservers/;
+   } 
+}
+
+server {
+   listen       80;
+   server_name  upload.haitang.com;
+
+   # 主要是用来运行我们的web的后台项目
+   location / {
+       root   html;
+         proxy_pass   http://goservers/upload;
+   } 
+}
+```
+
+也使用端口隔离
+
+```json
+upstream goservers{
+   server 127.0.0.1:8081;
+   server 127.0.0.1:8082;
+   server 127.0.0.1:8083;
+}
+
+server {
+   listen       80;
+   server_name  localhost;
+
+   # 主要是用来运行我们的web的后台项目
+   location / {
+       root   html;
+       index  index.html index.htm;
+   }
+      
+   #	 运行接口项目
+   location /api {
+        proxy_pass   http://127.0.0.1:8990/api;
+   }
+
+
+   location /web {
+        proxy_pass   http://goservers/;
+   }
+
+
+}
+
+
+server {
+   listen       81;
+   server_name  localhost;
+
+   # 主要是用来运行我们的web的后台项目
+   location / {
+       root   html;
+         proxy_pass   http://goservers/;
+   }
+      
+
+#   error_page  404    /404.html;
+
+   # redirect server error pages to the static page /50x.html
+   #
+#   error_page   500 502 503 504  /50x.html;
+#   location = /50x.html {
+#       root   html;
+#   }
+
+}
+
+server {
+   listen       82;
+   server_name  localhost;
+
+   # 主要是用来运行我们的web的后台项目
+   location / {
+       root   html;
+         proxy_pass   http://goservers/;
+   } 
+}
+
+server {
+   listen       83;
+   server_name  localhost;
+
+   # 主要是用来运行我们的web的后台项目
+   location / {
+       root   html;
+         proxy_pass   http://goservers/upload;
+   } 
+}
+```
+
+
+
+
+
+# 04、使用shell的脚本的方式解决新老更替的问题
+
+```sh
+echo 'go 项目开始启动了'
+ps aux | grep -ai "ginweb" | grep -v grep | awk '{print $2}' | xargs kill -9
+echo '上传的服务全部关闭成功'
+chmod +x /www/ginweb/ginweb-8081
+chmod +x /www/ginweb/ginweb-8082
+chmod +x /www/ginweb/ginweb-8083
+echo '-----授权成功----开始启动'
+nohup /www/ginweb/ginweb-8081 &
+nohup /www/ginweb/ginweb-8082 &
+nohup /www/ginweb/ginweb-8083 &
+echo '启动完毕'
+```
+
+然后赋予start.sh的可执行权限
+
+```sh
+chmod +x start.sh
+```
+
+然后执行
+
+```sh
+cd /www/ginweb
+./start.sh
+```
+
+==但是建议大家不在生产环境的时候，全部关停，可以写两个脚本，一个脚本关闭一部分，如果没问题在执行第二脚本，把其他的全部关闭在发布最新的。==
+
+# 05、自建机房：多机多部署多应用
+
+1: web服务节点
+
+- 192.168.110.1: 8081
+- 192.168.110.2: 8081
+- 192.168.110.3: 8081
+- 192.168.110.4: 8081
+
+2: nginx服务节点
+
+- 192.168.110.2: 80
+
+3:   nginx.conf配置如下：
+
+```
+upstream goservers{
+   server 192.168.110.1:8081;
+   server 192.168.110.2:8081;
+   server 192.168.110.3:8081;
+   server 192.168.110.4:8081;
+}
+
+server {
+   listen       80;
+   server_name  localhost;
+
+   # 主要是用来运行我们的web的后台项目
+   location / {
+       root   html;
+       index  index.html index.htm;
+   }
+      
+   #	 运行接口项目
+   location /api {
+        proxy_pass   http://127.0.0.1:8990/api;
+   }
+
+
+   location /web {
+        proxy_pass   http://goservers/;
+   }
+
+   
+
+#   error_page  404    /404.html;
+
+   # redirect server error pages to the static page /50x.html
+   #
+#   error_page   500 502 503 504  /50x.html;
+#   location = /50x.html {
+#       root   html;
+#   }
+
+}
+```
+
+
+
+# 06、云服务器：多机多部署多应用
+
+1: web服务节点
+
+- 176.168.110.135: 8081
+- 176.18.11.135: 8081
+- 176.68.10.135: 8081
+- 176.18.10.135: 8081
+
+2: nginx服务节点
+
+- 125.58.58.41:80
+
+3:   nginx.conf配置如下：
+
+```json
+upstream goservers{
+   server 176.168.110.135:8081;
+   server 176.18.11.135:8081;
+   server 176.68.10.135:8081;
+   server 176.18.10.135:8081;
+}
+
+server {
+   listen       80;
+   server_name  localhost;
+
+   # 主要是用来运行我们的web的后台项目
+   location / {
+       root   html;
+       index  index.html index.htm;
+   }
+      
+   #	 运行接口项目
+   location /api {
+        proxy_pass   http://127.0.0.1:8990/api;
+   }
+
+
+   location /web {
+        proxy_pass   http://goservers/;
+   }
+
+  
+
+#   error_page  404    /404.html;
+
+   # redirect server error pages to the static page /50x.html
+   #
+#   error_page   500 502 503 504  /50x.html;
+#   location = /50x.html {
+#       root   html;
+#   }
+
+}
+```
+
+# 01、环境隔离
+
+
+
+## 01、概述
+
+正规的流程：开发环境（开人员）—————–测试环境（测试人员（功能测试，压测指标，服务参数））——-预发布环境（运维人员）—————生成环境
+
+在前面发布的go项目。在发布过程中我们环境一般来说会分为开发环境、测试环境、和生产环境，不同环境都自己的配置信息，如果在项目我们都共用一个配置文件的话，可能会造成开发环境、测试环境、生产环境。三个环境的配置不不断的切换和变更。
+
+比如：我们项目里其实就提供一个`application.yml`配置文件
+
+开发环境：
+
+```yaml
+# 服务端口的配置
+server:
+  port: 8990
+  context: /
+# 数据库配置
+# "root:mkxiaoer@tcp(127.0.0.1:3306)/ksd-social-db?charset=utf8&parseTime=True&loc=Local", // DSN data source name
+database:
+  mysql:
+    host: 127.0.0.1
+    port: 3306
+    dbname: kva-admin-db
+    username: root
+    password: mkxiaoer
+    config: charset=utf8&parseTime=True&loc=Local
+# nosql数据的配置
+nosql:
+  redis:
+    host: 127.0.0.1:6379
+    password: 
+    db: 0
+  es:
+    host: 127.0.0.1
+    port: 9300
+    password: 456
+```
+
+使用viper来进行解析的和生效的。
+
+发布的流程：
+
+- 修改application.yaml的配置信息改成测试环境或者生产环境
+- 然后使用go build打包
+- 然后把可执行文件放入到服务器
+- 然后启动或者集群启动即可。
+
+如果这个时候发布完了。我要继续开发。你必须要生产环境的配置改成开发环境配置，你才能够正常开发。所以这种使用单配置文件来属性的标记注释切换，是非常麻烦和不推荐的。假设我们能够实现可以通过环境的方式来加载他们对应的配置文件那么不完美了么？
+
+
+
+## 02、根据环境来隔离配置信息
+
+- 开发环境 development 简化的名字：application-dev.yaml
+
+```yaml
+# 服务端口的配置
+server:
+  port: 8990
+  context: /
+# 数据库配置
+# "root:mkxiaoer@tcp(127.0.0.1:3306)/ksd-social-db?charset=utf8&parseTime=True&loc=Local", // DSN data source name
+database:
+  mysql:
+    host: 127.0.0.1
+    port: 3306
+    dbname: kva-admin-db
+    username: root
+    password: mkxiaoer
+    config: charset=utf8&parseTime=True&loc=Local
+# nosql数据的配置
+nosql:
+  redis:
+    host: 127.0.0.1:6379
+    password:
+    db: 0
+  es:
+    host: 127.0.0.1
+    port: 9300
+    password: 456
+```
+
+- 测试环境 test ：简化的名字：application-test.yaml
+
+```yaml
+# 服务端口的配置
+server:
+  port: 8991
+  context: /
+# 数据库配置
+# "root:mkxiaoer@tcp(127.0.0.1:3306)/ksd-social-db?charset=utf8&parseTime=True&loc=Local", // DSN data source name
+database:
+  mysql:
+    host: 127.0.0.1
+    port: 3306
+    dbname: kva-admin-db
+    username: root
+    password: mkxiaoer
+    config: charset=utf8&parseTime=True&loc=Local
+# nosql数据的配置
+nosql:
+  redis:
+    host: 127.0.0.1:6379
+    password: mkxiaoer1986.
+    db: 0
+  es:
+    host: 127.0.0.1
+    port: 9300
+    password: 456
+```
+
+- 生成环境 production生产环境：简化的名字：application-prod.yaml
+
+```yaml
+# 服务端口的配置
+server:
+  port: 8992
+  context: /
+# 数据库配置
+# "root:mkxiaoer@tcp(127.0.0.1:3306)/ksd-social-db?charset=utf8&parseTime=True&loc=Local", // DSN data source name
+database:
+  mysql:
+    host: 127.0.0.1
+    port: 3306
+    dbname: kva-admin-db
+    username: root
+    password: mkxiaoer
+    config: charset=utf8&parseTime=True&loc=Local
+# nosql数据的配置
+nosql:
+  redis:
+    host: 127.0.0.1:6379
+    password: mkxiaoer1986.
+    db: 0
+  es:
+    host: 127.0.0.1
+    port: 9300
+    password: 456
+```
+
+
+
+## 03、使用viper进行环境配置文件的加载
+
+
+
+```go
+package initilization
+
+import (
+	"fmt"
+	"github.com/fsnotify/fsnotify"
+	"github.com/spf13/viper"
+	"os"
+	"xkginweb/global"
+)
+
+func GetEnvInfo(env string) string {
+	viper.AutomaticEnv()
+	return viper.GetString(env)
+}
+
+func InitViper() {
+	//获取项目的执行路径
+	path, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+	config := viper.New()
+	//config.AddConfigPath(path + "/conf") //设置读取的文件路径
+	//config.SetConfigName("application")  //设置读取的文件名
+	//config.SetConfigType("yaml")         //设置文件的类型
+	//logs.Info("你激活的环境是：" + GetEnvInfo("env"))
+	config.SetConfigFile(path + "/conf/application-dev.yaml")
+	//尝试进行配置读取
+	if err := config.ReadInConfig(); err != nil {
+		panic(err)
+	}
+
+	config.WatchConfig()
+	config.OnConfigChange(func(e fsnotify.Event) {
+		fmt.Println("config file changed:", e.Name)
+		if err = config.Unmarshal(&global.Config); err != nil {
+			fmt.Println(err)
+		}
+	})
+
+	// 这里才是把yaml配置文件解析放入到Config对象的过程---map---config
+	if err = config.Unmarshal(&global.Config); err != nil {
+		fmt.Println(err)
+	}
+
+	// 打印文件读取出来的内容:
+	keys := config.AllKeys()
+	dataMap := make(map[string]interface{})
+	for _, key := range keys {
+		fmt.Println("yaml存在的key是: " + key)
+		dataMap[key] = config.Get(key)
+	}
+
+	global.Yaml = dataMap
+
+}
+
+```
+
+通过修改`InitViper` 然后不停的修改配置文件的环境，就得到不同环境的切换，这样解决在一个文件中来回注释切换的问题了。
+
+
+
+
+
+
+
+# go程序去读取环境变量
+
+在大部分的程序中，都可以读取到系统中设定环境变量的参数信息。通过参数系统你可以设定一些初始化值，可以让未来可执行程序不用把代码写死，而是直接通过环境变量的方式来进行配置。但是配置程序就必须有方案或者库区读取。
+
+假设：环境变量配置的加载
+
+1：如果我在系统环境变量设置一个env=prod
+
+2:  go同os组件读取环境变量
+
+3：然后在viper把读取到环境变量进行拼接
+
+4：这样未来我们只需要去更改系统环境变量了。
+
+就不需要在代码切换，更何况如果我们go build打包以后生成的可执行文件根本就不可以更改。如果更改就必须改源码在在打包。
+
+
+
+
+
+## 01、如何在系统环境中设置参数呢?
+
+
+
+#### windows
+
+- 【我的电脑】–【属性】
+
+![image-20230912204546060](images/image-20230912204546060.png)
+
+![image-20230912204603732](images/image-20230912204603732.png)
+
+![image-20230912204615257](images/image-20230912204615257.png)
+
+![image-20230912204649214](images/image-20230912204649214.png)
+
+然后使用代码读取即可
+
+```go
+package main
+
+import (
+	"fmt"
+	"os"
+)
+
+func main() {
+
+	//1:go程序去读取环境变量
+	fmt.Println("ok")
+	path := os.Getenv("GOPATH")
+	root := os.Getenv("GOROOT")
+	pathext := os.Getenv("PATHEXT")
+	goenv := os.Getenv("goenv")
+	fmt.Println(path)
+	fmt.Println(root)
+	fmt.Println(pathext)
+	fmt.Println(goenv)
+
+	//2:go程序去读取命令行参数
+}
+
+```
+
+你可以在环境变量中自己定义一个属性比如：goenv = dev  ，如下：
+
+![image-20230912205044180](images/image-20230912205044180.png)
+
+==这个你去运行main.go发现读取不出来，是不是没生效，其实不是，你可以把golang工具全部关闭，然后重启，你会发现就读取到了。那就说明开发工具golang对环境变量进行缓存。所以你第一次读取不得原因也就在这里。当然如果你发布生产是不会有这种问题。==
+
+
+
+## idea/golang开发工具如何配置环境变量
+
+首先为什么开发工具要自己去同步缓存一份环境变量呢，==其实就告诉不要轻易在电脑中系统环境中去增加页面的属性，而是在开发工具去增加，这样也可以业务的属性增加和系统里进行分离。防止污染！==如何完成在开发工具中去增加呢？
+
+1：新建一个main.go，执行一下
+
+2：然后找到main.go的执行编辑配置
+
+![image-20230912205611723](images/image-20230912205611723.png)
+
+3: 然后增加业务级别的环境配置参数
+
+![image-20230912205919614](images/image-20230912205919614.png)
+
+
+
+## 03、方式一：使用golang的环境配置读取环境变量参数
+
+1： 定义读取的方法
+
+```go
+func GetEnvInfo(env string) string {
+	viper.AutomaticEnv()
+	return viper.GetString(env)
+}
+
+```
+
+2: 在代码进行环境变量的配置
+
+![image-20230912210727257](images/image-20230912210727257.png)
+
+3: 根据环境来加载配配置信息
+
+```go
+package initilization
+
+import (
+	"fmt"
+	"github.com/beego/beego/v2/adapter/logs"
+	"github.com/fsnotify/fsnotify"
+	"github.com/spf13/viper"
+	"os"
+	"xkginweb/global"
+)
+
+func GetEnvInfo(env string) string { //---------------------新增代码
+	viper.AutomaticEnv()
+	return viper.GetString(env)
+}
+
+func InitViper() {
+	//获取项目的执行路径
+	path, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+	config := viper.New()
+	//config.AddConfigPath(path + "/conf") //设置读取的文件路径
+	//config.SetConfigName("application")  //设置读取的文件名
+	//config.SetConfigType("yaml")         //设置文件的类型
+	logs.Info("你激活的环境是：" + GetEnvInfo("env"))//---------------------新增代码
+	config.SetConfigFile(path + "/conf/application-" + GetEnvInfo("env") + ".yaml")//---------------------新增代码
+	//尝试进行配置读取
+	if err := config.ReadInConfig(); err != nil {
+		panic(err)
+	}
+
+	config.WatchConfig()
+	config.OnConfigChange(func(e fsnotify.Event) {
+		fmt.Println("config file changed:", e.Name)
+		if err = config.Unmarshal(&global.Config); err != nil {
+			fmt.Println(err)
+		}
+	})
+
+	// 这里才是把yaml配置文件解析放入到Config对象的过程---map---config
+	if err = config.Unmarshal(&global.Config); err != nil {
+		fmt.Println(err)
+	}
+
+	// 打印文件读取出来的内容:
+	keys := config.AllKeys()
+	dataMap := make(map[string]interface{})
+	for _, key := range keys {
+		fmt.Println("yaml存在的key是: " + key)
+		dataMap[key] = config.Get(key)
+	}
+
+	global.Yaml = dataMap
+
+}
+
+```
+
+然后运行
+
+你在配置里不切换不同环境。你就可以看到不同环境的文件加载。
+
+
+
+### 04、方式2：使用代码的方式完成环境变量参数设置
+
+```go
+package main
+
+import (
+	"github.com/spf13/viper"
+	"xkginweb/initilization"
+)
+
+func main() {
+	//// 设置环境变量
+	viper.SetDefault("env", "prod")//修改这里即可
+	// 解析配置文件
+	initilization.InitViper()
+	// 初始化日志 开发的时候建议设置成：debug ，发布的时候建议设置成：info/error
+	// info --- console + file
+	// error -- file
+	initilization.InitLogger("debug")
+	// 初始化中间 redis/mysql/mongodb
+	initilization.InitMySQL()
+	// 初始化缓存
+	//initilization.InitRedis()
+	// 初始化本地缓存
+	initilization.InitCache()
+	// 定时器
+	// 并发问题解决方案
+	// 异步编程
+	// 初始化路由
+	initilization.RunServer()
+}
+
+```
+
+这样就替换golang的启动配置配置环境变量。更方便一些。
+
+
+
+
+
+# 命令行参数的价值和意义（推进）
+
+## 1：分析
+
+通过上面你会发现可==设置参数到环境变量中==，然后通过os/viper提供的方法可以读取环境变量的参数，然后让程序代码可以跟随你设置环境变量的参数来加载不同的配置文件信息。确实可以解决加载不同环境的目录
+
+但是同时也增加一个问题：你可能会把系统环境参数搞得乱七八糟。甚至搞坏。因为在真正得服务器上肯定没有golang项目环境配置隔离机制。在服务器上设定得环境变量参数都是共享得。
+
+## 2：假设
+
+如果我打了一个包，并且可以随时在启动可执行文件得时候来覆盖代码中变量参数，那么不完美么？
+
+1：在代码我们先设定一个参数值，并且给默认值
+
+```sh
+viper.SetDefault("env", "prod")
+```
+
+2：如果在启动时候，增加一个参数，就默认值覆盖掉
+
+```sh
+# 使用默认值进行启动
+./xinginweb
+# 使用指定环境得方式进行启动
+./xinginweb --env=test --xxxx=bbbb
+```
+
+```go
+env := getEnv("env","dev") 第一个参数：env 是key名字，第二参数是：默认值
+viper.SetDefault("env", env)
+```
+
+3：那么完美了
+
+
+
+## 03、实现步骤
+
+1:  使用flag组件
+
+```go
+package main
+
+import (
+	"flag"
+	"fmt"
+)
+
+func main() {
+
+	//2:go程序去读取命令行参数
+	// --goenv=test
+	var env string
+	flag.Parse()
+	flag.StringVar(&env, "goenv", "dev", "环境标识")
+	fmt.Println(env)
+}
+
+```
+
+上面代码得含义是指：如果未来我执行exe文件或者linux得可执行文件得时候，如果携带命令行参数，就会生效，如何指定呢？
+
+```sh
+./xkginweb.exe
+./xkginweb
+如果不指定：就使用默认值dev赋值给env这个变量
+
+./xkginweb.exe --goenv=test
+./xkginweb --goenv=prod
+如果指定：就使用goenv指定值覆盖默认值，然后赋值给env这个变量
+```
+
+## 2：疑问
+
+1：我怎么把上面得代码测试出来呢。难道为了学习就打个包。其实不需要，在golang开发工具下又一个配置也完成命令行参数得设定。
+
+![image-20230912213723985](images/image-20230912213723985.png)
+
+支持得写法如下：
+
+通过以上两种方法定义命令行flag参数后，需要通过调用flag.Parse()来对命令行参数进行解析。
+支持的命令行参数格式有一下几种：
+
+- -flag xxx (使用空格，一个 - 符号）
+- --flag xxx (使用空格，两个 - 符号)
+- -flag=xxx （使用等号， 一个 - 符号）
+- --flag = xxx (使用等号， 两个- 符号)
+
+其中，布尔类型的参数必须用等号的方式指定。
+flag在解析第一个非flag参数之前停止，或者在终止符"-"之后停止。
+
+参考网站：https://studygolang.com/articles/20370
+
+完整代码
+
+```go
+package main
+import (
+    "fmt"
+    "flag"
+    "time"
+)
+func main(){
+    var name string
+    var age int
+    var married bool
+    var delay time.Duration
+    flag.StringVar(&name,"name","张三","姓名")
+    flag.IntVar(&age,"age",18,"年龄")
+    flag.BoolVar(&married,"married",false,"婚否")
+    flag.DurationVar(&delay, "d", 0, "延迟的时间间隔")
+    flag.Parse()
+    fmt.Println(name,age,married,delay)
+    fmt.Println(flag.Args())
+    fmt.Println(flag.NArg())
+    fmt.Println(flag.NFlag())
+
+}
+```
+
+参考网站：https://studygolang.com/articles/20370
+
+
+
+完整得代码
+
+
+
+## 小结
+
+os这个组件库，即可用读取到环境变量参数，也读取命令行参数
+
+
+
+# Dokcer发布go项目
+
+
+
+## 01、Docker的入门参考
+
+狂神docker课程：https://www.bilibili.com/video/BV1og4y1q7M4/
+
+## 02、Docker的安装
+
+```sh
+（1）yum 包更新到最新
+> yum update
+
+（2）安装需要的软件包， yum-util 提供yum-config-manager功能，另外两个是devicemapper驱动依赖的
+> yum install -y yum-utils device-mapper-persistent-data lvm2
+
+（3）设置yum源为阿里云
+> yum-config-manager --add-repo http://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo
+
+（4）安装docker
+> yum install docker-ce -y
+
+（5）安装后查看docker版本
+> docker -v
+```
+
+使用阿里云的镜像加速器，这样后续docker在下载镜像的会快很多。
+
+![image-20230915213150745](images/image-20230915213150745.png)
+
+![image-20230915213225838](images/image-20230915213225838.png)
+
+```sh
+sudo mkdir -p /etc/docker
+sudo tee /etc/docker/daemon.json <<-'EOF'
+{
+  "registry-mirrors": ["https://0wrdwnn6.mirror.aliyuncs.com"]
+}
+EOF
+sudo systemctl daemon-reload
+sudo systemctl restart docker
+```
+
+如何证明安装成功
+
+```sh
+# 启动状态
+systemctl status docker ---绿色
+# 查看版本
+docker -v 
+# 查看安装信息
+docker info
+# 查看镜像
+docker images
+# 查看容器
+docker ps -a
+docker ps 
+```
+
+
+
+## 03、Docker的核心概念
+
+- 宿主机
+  - 当前docker安装的系统就是docker宿主
+  - docker是宿主机微型机，
+- 镜像
+  - 可行文件，安装文件—-redis.tar.gz——-redis镜像
+- 容器
+  - 你安装以后服务 —- redis server—-redis容器服务
+
+
+
+### docker产生的背景
+
+- 电脑大部分的内存和cpu都是很闲置，特别是配置高的服务器，那么一般的隔离都采用ip隔离（一个服务器 32c、64g）,然后在这个电脑中安装虚拟机然后进行N个系统分配，分配网关 ，分配Ip 
+- 然后要部署一个项目，就必须把对应环境都要安装一次(java,mysql,redis,nginx) — 20-web节点
+
+
+
+## go项目的发布和部署
+
+1： 准备一个docker环境
+
+2：准备一个go项目
+
+3：定义一个`Dockerfile`
+
+```dockerfile
+# 依赖环境
+FROM golang:1.20-alpine
+# 复制执行文件到容器的根目录下
+COPY build/testdocker ./
+# 置顶容器服务的端口
+EXPOSE 8080
+# 赋予权限
+RUN chmod +x ./testdocker
+# 当你在执行docker run的时候会去启动你./testdocker
+ENTRYPOINT [ "./testdocker" ]
+
+```
+
+基础环境构建
+
+```dockerfile
+# 基础镜像
+FROM alpine:3.12
+# 维护者
+MAINTAINER frank
+# 复制执行文件到容器的根目录下
+COPY build/testdocker ./
+# 置顶容器服务的端口
+EXPOSE 8080
+# 赋予权限
+RUN chmod +x ./testdocker
+# 当你在执行docker run的时候会去启动你./testdocker
+ENTRYPOINT [ "./testdocker" ]
+```
+
+4: 上传项目可执行文件和Dockerfile到服务器
+
+目录关系
+
+![image-20230915223915439](images/image-20230915223915439.png)
+
+
+
+5: 然后执行docker build 
+
+```sh
+ docker build -t testdocker:1.0 .
+```
+
+6： 然后查看打包后的镜像
+
+```sh
+docker images
+```
+
+如下：
+
+![image-20230915223957646](images/image-20230915223957646.png)
+
+7:  启动一个go容器服务
+
+```sh
+# 这个占用的启动，如果ctrl+c服务会停止，你需要手动在启动一次，docker start abfeb2edbef6
+# 这种启动的方式一般在调试的时候会使用到。
+docker run -it --name gowebpro -p 8080:8080 testdocker:1.0
+# 守护方式启动。那么久不方便查看到日志信息，如果你查看日志信息久必须使用 docker logs -f abfeb2edbef6
+docker run -di --name gowebpro -p 8080:8080 testdocker:1.0
+docker run -di --name gowebpro81 -p 8081:8080 testdocker:1.0
+docker run -di --name gowebpro82 -p 8082:8080 testdocker:1.0
+```
+
+使用
+
+```sh
+docker ps -a
+```
+
+查看容器的启动
 
 
 
@@ -8566,3 +16092,13 @@ err = decoder.Decode(inputData)
 - **通用解码**：它可以用于解码来自不同数据源（如 JSON、YAML 或环境变量）的数据。
 
 总之，`mapstructure` 是一个处理动态数据和将其映射到固定结构的有用工具，特别是在配置管理和数据解析的上下文中。它的灵活性和强大的定制选项使得它在 Go 社区中非常受欢迎。
+
+
+
+# 流程梳理
+
+1、model数据库表建设
+
+2、初始化数据库 -> 注册表
+
+3、

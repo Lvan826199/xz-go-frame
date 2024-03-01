@@ -18,3 +18,17 @@ type GetById struct {
 func (r *GetById) Uint() uint {
 	return uint(r.ID)
 }
+
+type IdsReq struct {
+	Ids []int `json:"ids" form:"ids"`
+}
+
+type GetAutorityId struct {
+	AuthorityId uint `json:"authorityId" form:"authorityId"` // 角色ID
+}
+
+type StatusReq struct {
+	ID    uint   `json:"id"`    // 主键ID
+	Value int8   `json:"value"` // 状态值
+	Field string `json:"field"` // 字段名
+}
