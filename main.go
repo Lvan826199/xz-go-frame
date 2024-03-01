@@ -14,6 +14,10 @@ func main() {
 	//  开始初始化配置文件
 	initlization.InitViper()
 	fmt.Println("初始化配置文件成功！")
+	// 初始化日志 开发的时候建议设置成：debug ，发布的时候建议设置成：info/error
+	// info --- console + file
+	// error -- file
+	initlization.InitLogger("debug")
 	// 初始化数据库
 	initlization.InitMySQL()
 	//开始初始化gin路由服务
