@@ -20,6 +20,8 @@ func main() {
 	initlization.InitLogger("debug")
 	// 初始化数据库
 	initlization.InitMySQL()
+	// 初始化本地缓存
+	initlization.InitCache()
 	//开始初始化gin路由服务
 	initlization.RunServer()
 	fmt.Println("启动xz-go-frame后端成功")
