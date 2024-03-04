@@ -3,6 +3,7 @@ package initlization
 import (
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 	"net/http"
 	"time"
 	"xz-go-frame/commons/filter"
@@ -51,10 +52,11 @@ func RunServer() {
 	address := fmt.Sprintf(":%d", global.Yaml["server.port"])
 	// 启动HTTP服务，courseController
 	s := initServer(address, Router)
+	global.Log.Debug("服务启动成功：端口是：", zap.String("port", address))
 	// 保证文本顺序输出
 	time.Sleep(10 * time.Microsecond)
 
 	s2 := s.ListenAndServe().Error()
-	fmt.Println("服务启动完毕", s2)
+	global.Log.Info("服务启动完毕", zap.Any("s2", s2))
 
 }

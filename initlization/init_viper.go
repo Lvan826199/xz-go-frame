@@ -12,7 +12,16 @@ import (
 	"xz-go-frame/global"
 )
 
-func InitViper() {
+func GetEnvInfo(env string) string {
+	/*
+		例如，如果你有一个配置项叫 server.port，在你的应用程序中通过 viper.GetInt("server.port") 获取端口号。
+		如果你调用了 viper.AutomaticEnv() 并且设置了环境变量 SERVER_PORT，Viper 会优先使用 SERVER_PORT 环境变量的值，而不是配置文件中的值。
+	*/
+	viper.AutomaticEnv()
+	return viper.GetString(env)
+}
+
+func InitViper(args map[string]any) {
 	// 获取项目的执行路径
 	path, err := os.Getwd() // D:\Z_Enviroment\GoWorks\src\xz-go-frame
 	if err != nil {
@@ -20,12 +29,15 @@ func InitViper() {
 	}
 	// 初始化一个viper解析配置对象
 	config := viper.New()
-	// 开始设置从哪个目录下去找yaml文件
-	config.AddConfigPath(path + "/configfile") // 设置读取的文件路径
-	// 设置配置文件的名字
-	config.SetConfigName("application") // 设置读取的文件名
-	// 设置配置文件的后缀
-	config.SetConfigType("yaml") // 设置文件类型
+	//// 开始设置从哪个目录下去找yaml文件
+	//config.AddConfigPath(path + "/configfile") // 设置读取的文件路径
+	//// 设置配置文件的名字
+	//config.SetConfigName("application") // 设置读取的文件名
+	//// 设置配置文件的后缀
+	//config.SetConfigType("yaml") // 设置文件类型
+
+	global.Log.Info("你激活的环境是：" + GetEnvInfo("env"))
+	config.SetConfigFile(path + "/configfile/application-" + GetEnvInfo("env") + ".yaml")
 
 	// 尝试进行配置读取
 	if err := config.ReadInConfig(); err != nil {
@@ -53,6 +65,12 @@ func InitViper() {
 	for _, key := range keys {
 		fmt.Println("yaml存在的key是: "+key+" : ", config.Get(key))
 		dataMap[key] = config.Get(key)
+	}
+	// 用环境变量覆盖
+	// 命令行参数覆盖 boot
+	port := args["server.port"].(int)
+	if port != -1 {
+		dataMap["server.port"] = port
 	}
 
 	global.Yaml = dataMap
