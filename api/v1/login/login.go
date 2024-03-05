@@ -98,7 +98,7 @@ func (api *LoginApi) ToLogined(c *gin.Context) {
 /*
 根据用户信息创建一个token
 */
-func (api *LoginApi) generaterToken(c *gin.Context, dbUser *user.User) string {
+func (api *LoginApi) generaterToken(c *gin.Context, dbUser *user.XzUser) string {
 	// 设置token续期的缓冲时间
 	bf, _ := utils.ParseDuration("1d")
 	ep, _ := utils.ParseDuration("7d")
@@ -108,7 +108,7 @@ func (api *LoginApi) generaterToken(c *gin.Context, dbUser *user.User) string {
 	// 2、生成token
 	token, err2 := myJwt.CreateToken(jwtgo.CustomClaims{
 		dbUser.ID,
-		dbUser.Name,
+		dbUser.Account,
 		int64(bf / time.Second),
 		jwt.RegisteredClaims{
 			Audience:  jwt.ClaimStrings{"XZ-USER"},               // 受众

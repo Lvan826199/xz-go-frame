@@ -13,7 +13,7 @@ import (
 type UserService struct{}
 
 // nil 是go空值处理，必须是指针类型
-func (service *UserService) GetUserByAccount(account string) (user *user.User, err error) {
+func (service *UserService) GetUserByAccount(account string) (user *user.XzUser, err error) {
 	// 根据account进行查询
 	err = global.XZ_DB.Where("account = ?", account).First(&user).Error
 	if err != nil {

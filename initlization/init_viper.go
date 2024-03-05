@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/viper"
+	"go.uber.org/zap"
 	"os"
 	"xz-go-frame/global"
 )
@@ -35,8 +36,8 @@ func InitViper(args map[string]any) {
 	//config.SetConfigName("application") // 设置读取的文件名
 	//// 设置配置文件的后缀
 	//config.SetConfigType("yaml") // 设置文件类型
-
-	global.Log.Info("你激活的环境是：" + GetEnvInfo("env"))
+	//fmt.Println("你激活的环境是：" + GetEnvInfo("env"))
+	global.Log.Info("你激活的环境是：", zap.String("env", GetEnvInfo("env")))
 	config.SetConfigFile(path + "/configfile/application-" + GetEnvInfo("env") + ".yaml")
 
 	// 尝试进行配置读取
