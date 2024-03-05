@@ -4,6 +4,7 @@
  */
 package bbs
 
+// 1
 type ServiceGroup struct {
 	BbsService
 	BbsCategoryService
