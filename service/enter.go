@@ -7,15 +7,17 @@ package service
 import (
 	"xz-go-frame/service/bbs"
 	"xz-go-frame/service/state"
+	"xz-go-frame/service/user"
+	"xz-go-frame/service/video"
 )
 
 // 实例创建聚合
 type ServicesGroup struct {
 	//SyserviceGroup        sys.ServiceGroup
-	XkBbsServiceGroup bbs.ServiceGroup
-	//XkVideoServiceGroup   video.ServiceGroup
+	XkBbsServiceGroup     bbs.ServiceGroup
+	XkVideoServiceGroup   video.ServiceGroup
 	UserStateServiceGroup state.ServiceGroup
-	//UserServiceGroup      user.ServiceGroup
+	UserServiceGroup      user.ServiceGroup
 }
 
 // 单例设计模式
