@@ -9,7 +9,6 @@ import (
 	"xz-go-frame/commons/jwtgo"
 	"xz-go-frame/commons/response"
 	"xz-go-frame/model/entity/user"
-	service "xz-go-frame/service/user"
 	"xz-go-frame/utils"
 )
 
@@ -29,7 +28,7 @@ func (api *LoginApi) ToLogined(c *gin.Context) {
 		Password string
 	}
 	// 1、获取用户在页面上输入账号和密码，开始在数据库里对数据进行校验
-	userService := service.UserService{}
+	//userService := service.UserService{}
 	param := LoginParam{}
 	err2 := c.ShouldBindJSON(&param)
 	if err2 != nil {
@@ -37,62 +36,62 @@ func (api *LoginApi) ToLogined(c *gin.Context) {
 		return
 	}
 
-	//if len(param.Code) == 0 {
-	//	response.Fail(60002, "请输入验证码", c)
+	////if len(param.Code) == 0 {
+	////	response.Fail(60002, "请输入验证码", c)
+	////	return
+	////}
+	////
+	////if len(param.CodeId) == 0 {
+	////	response.Fail(60002, "验证码获取失败", c)
+	////	return
+	////}
+	////
+	////// 开始校验验证码是否正确
+	////verify := store.Verify(param.CodeId, param.Code, true)
+	////if !verify {
+	////	response.Fail(60002, "你输入的验证码有误!!", c)
+	////	return
+	////}
+	//inputAccount := param.Account
+	//inputPassword := param.Password
+	//
+	//if len(inputAccount) == 0 {
+	//	response.Fail(60002, "请输入账号", c)
 	//	return
 	//}
 	//
-	//if len(param.CodeId) == 0 {
-	//	response.Fail(60002, "验证码获取失败", c)
+	//if len(inputPassword) == 0 {
+	//	response.Fail(60002, "请输入密码", c)
 	//	return
 	//}
 	//
-	//// 开始校验验证码是否正确
-	//verify := store.Verify(param.CodeId, param.Code, true)
-	//if !verify {
-	//	response.Fail(60002, "你输入的验证码有误!!", c)
+	//dbUser, err := userService.FindAuthorPageMap()
+	//if err != nil {
+	//	response.Fail(60002, "您输入的账号或密码错误", c)
 	//	return
 	//}
-	inputAccount := param.Account
-	inputPassword := param.Password
-
-	if len(inputAccount) == 0 {
-		response.Fail(60002, "请输入账号", c)
-		return
-	}
-
-	if len(inputPassword) == 0 {
-		response.Fail(60002, "请输入密码", c)
-		return
-	}
-
-	dbUser, err := userService.GetUserByAccount(inputAccount)
-	if err != nil {
-		response.Fail(60002, "您输入的账号或密码错误", c)
-		return
-	}
-
-	// 校验用户的账号密码输入是否和数据库一致
-	if dbUser != nil && dbUser.Password == inputPassword {
-		token := api.generaterToken(c, dbUser)
-		// 根据用户id查询用户的角色
-		roles := [2]map[string]any{}
-		m1 := map[string]any{"id": 1, "name": "超级管理员"}
-		m2 := map[string]any{"id": 2, "name": "财务"}
-		roles[0] = m1
-		roles[1] = m2
-		// 根据用户id查询用户的角色的权限
-		permissions := [2]map[string]any{}
-		pm1 := map[string]any{"code": 10001, "name": "保存用户"}
-		pm2 := map[string]any{"code": 20001, "name": "删除用户"}
-		permissions[0] = pm1
-		permissions[1] = pm2
-
-		response.Ok(map[string]any{"user": dbUser, "token": token, "roles": roles, "permissions": permissions}, c)
-
-	} else {
-		response.Fail(60002, "你输入的账号和密码有误", c)
-	}
+	//
+	//// 校验用户的账号密码输入是否和数据库一致
+	//if dbUser != nil && dbUser.Password == inputPassword {
+	//	token := api.generaterToken(c, dbUser)
+	//	// 根据用户id查询用户的角色
+	//	roles := [2]map[string]any{}
+	//	m1 := map[string]any{"id": 1, "name": "超级管理员"}
+	//	m2 := map[string]any{"id": 2, "name": "财务"}
+	//	roles[0] = m1
+	//	roles[1] = m2
+	//	// 根据用户id查询用户的角色的权限
+	//	permissions := [2]map[string]any{}
+	//	pm1 := map[string]any{"code": 10001, "name": "保存用户"}
+	//	pm2 := map[string]any{"code": 20001, "name": "删除用户"}
+	//	permissions[0] = pm1
+	//	permissions[1] = pm2
+	//
+	//	response.Ok(map[string]any{"user": dbUser, "token": token, "roles": roles, "permissions": permissions}, c)
+	//
+	//} else {
+	//	response.Fail(60002, "你输入的账号和密码有误", c)
+	//}
 }
 
 /*
