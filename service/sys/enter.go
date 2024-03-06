@@ -5,11 +5,11 @@
 package sys
 
 type ServiceGroup struct {
-	//SysUserService
-	//SysMenusService
+	SysUserService
+	SysMenusService
 	SysApisService
-	//SysRolesService
-	//SysRoleMenusService
-	//SysRoleApisService
-	//SysUserRolesService
+	SysRolesService
+	SysRoleMenusService
+	SysRoleApisService
+	SysUserRolesService
 }
