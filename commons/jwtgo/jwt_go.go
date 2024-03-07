@@ -38,6 +38,8 @@ func NewJWT() *JWT {
 type CustomClaims struct {
 	UserId   uint   `json:"userId"`
 	Username string `json:"username"`
+	RoleCode string `json:"roleCode"`
+	RoleId   uint   `json:"roleId"`
 	// 续期使用
 	BufferTime int64
 	// RegisteredClaims 内嵌标准的声明
