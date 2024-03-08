@@ -5,7 +5,6 @@
 package commons
 
 import (
-	"fmt"
 	"gorm.io/gorm"
 	"xz-go-frame/global"
 )
@@ -15,9 +14,9 @@ type BaseService[D any, T any] struct{}
 
 // 明细
 func (service *BaseService[D, T]) GetByID(id uint) (data *T, err error) {
-	p := ParentModel[D]{}
-	d := p.ID
-	fmt.Println(d)
+	//p := ParentModel[D]{}
+	//d := p.ID
+	//fmt.Println(d)
 	err = global.XZ_DB.Where("id = ?", id).First(&data).Error
 	return
 }
@@ -74,7 +73,7 @@ func (service *BaseService[D, T]) UpdateStatus(id D, field string, fieldValue an
 }
 
 // 状态更新-忽略isdelete
-func (service *BaseService[D, T]) UnUpdateStatus(id D, field string, fieldValue any) (bool, int64) {
+func (service *BaseService[D, T]) UnUpdateStatus(id, field string, fieldValue any) (bool, int64) {
 	var data T
 	affected := global.XZ_DB.Unscoped().Model(data).Where("id = ?", id).Update(field, fieldValue).RowsAffected
 	return affected > 0, affected

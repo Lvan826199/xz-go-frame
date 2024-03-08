@@ -6,6 +6,7 @@ package sys
 
 import (
 	"xz-go-frame/global"
+	"xz-go-frame/model/entity/commons/request"
 	"xz-go-frame/model/entity/sys"
 	"xz-go-frame/service/commons"
 )
@@ -62,4 +63,36 @@ func (service *SysRolesService) GetSysRolesByID(id uint) (sysRoless *sys.SysRole
 func (service *SysRolesService) FindRoles() (sysRoless []*sys.SysRoles, err error) {
 	err = global.XZ_DB.Order("id asc").Find(&sysRoless).Error
 	return
+}
+
+// 查询分页
+func (service *SysRolesService) LoadSysRolesPage(info request.PageInfo) (list interface{}, total int64, err error) {
+	// 获取分页的参数信息
+	limit := info.PageSize
+	offset := info.PageSize * (info.Page - 1)
+
+	// 准备查询那个数据库表,这里为什么不使用Model呢，因为我要使用别名
+	db := global.XZ_DB.Model(sys.SysRoles{})
+
+	// 准备切片帖子数组
+	var sysRoless []sys.SysRoles
+	// 加条件
+	if info.Keyword != "" {
+		db = db.Where("(role_name like ?)", "%"+info.Keyword+"%")
+	}
+
+	// 排序默时间降序降序
+	db = db.Order("created_at desc")
+
+	// 查询中枢
+	err = db.Unscoped().Count(&total).Error
+	if err != nil {
+		return sysRoless, total, err
+	} else {
+		// 执行查询
+		err = db.Unscoped().Limit(limit).Offset(offset).Find(&sysRoless).Error
+	}
+
+	// 结果返回
+	return sysRoless, total, err
 }

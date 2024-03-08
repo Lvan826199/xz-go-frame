@@ -9,14 +9,15 @@ import (
 	"xz-go-frame/api/v1/code"
 	"xz-go-frame/api/v1/login"
 	"xz-go-frame/api/v1/state"
+	"xz-go-frame/api/v1/sys"
 	"xz-go-frame/api/v1/upload"
 	"xz-go-frame/api/v1/video"
 )
 
 type WebApiGroup struct {
-	Video video.WebApiGroup
-	Code  code.WebApiGroup
-	//Sys    sys.WebApiGroup
+	Video  video.WebApiGroup
+	Code   code.WebApiGroup
+	Sys    sys.WebApiGroup
 	State  state.WebApiGroup
 	Upload upload.WebApiGroup
 	Bbs    bbs.WebApiGroup
