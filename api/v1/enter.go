@@ -7,6 +7,7 @@ package v1
 import (
 	"xz-go-frame/api/v1/bbs"
 	"xz-go-frame/api/v1/code"
+	"xz-go-frame/api/v1/course"
 	"xz-go-frame/api/v1/login"
 	"xz-go-frame/api/v1/state"
 	"xz-go-frame/api/v1/sys"
@@ -15,6 +16,7 @@ import (
 )
 
 type WebApiGroup struct {
+	Course course.WebApiGroup
 	Video  video.WebApiGroup
 	Code   code.WebApiGroup
 	Sys    sys.WebApiGroup
