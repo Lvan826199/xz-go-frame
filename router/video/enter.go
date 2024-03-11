@@ -5,5 +5,6 @@
 package video
 
 type WebRouterGroup struct {
-	VideoRouter
+	XkCategoryRouter
+	XkVideoRouter
 }
