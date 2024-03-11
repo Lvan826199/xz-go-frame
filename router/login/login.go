@@ -12,7 +12,7 @@ import (
 // 登录路由
 type LoginRouter struct{}
 
-func (router *LoginRouter) InitLoginRouter(Router *gin.Engine) {
+func (router *LoginRouter) InitLoginRouter(Router *gin.RouterGroup) {
 	//loginApi := login.LoginApi{}
 	// 单个定义
 	//Router.GET("/login/toLogin", loginApi.ToLogined)

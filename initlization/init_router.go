@@ -10,34 +10,68 @@ import (
 	"xz-go-frame/global"
 	"xz-go-frame/middle"
 	"xz-go-frame/router"
-	"xz-go-frame/router/code"
-	"xz-go-frame/router/login"
 )
 
 func InitGinRouter() *gin.Engine {
+	// 打印gin的时候日志是否用颜色标出
+	//gin.ForceConsoleColor()
+	//gin.DisableConsoleColor()
+	//f, _ := os.Create("gin.log")
+	//gin.DefaultWriter = io.MultiWriter(f)
+	// 如果需要同时将日志写入文件和控制台，请使用以下代码。
+	//gin.DefaultWriter = io.MultiWriter(f, os.Stdout)
+
 	// 初始化 gin 服务
 	ginServer := gin.Default()
 
 	// 提供服务组
-	videoRouter := router.RouterWebGroupApp.Video.VideoRouter
+	courseRouter := router.RouterWebGroupApp.Course.CourseRouter
+
+	videoRouter := router.RouterWebGroupApp.Video.XkVideoRouter
+
+	userStateRouter := router.RouterWebGroupApp.State.UserStateRouter
+
+	bbsRouter := router.RouterWebGroupApp.BBs.XkBbsRouter
+	bbsCategoryRouter := router.RouterWebGroupApp.BBs.BBSCategoryRouter
+
+	loginRouter := router.RouterWebGroupApp.Login.LoginRouter
+	logoutRouter := router.RouterWebGroupApp.Login.LogoutRouter
+	codeRouter := router.RouterWebGroupApp.Code.CodeRouter
+
+	sysMenusRouter := router.RouterWebGroupApp.Sys.SysMenusRouter
+	sysApisRouter := router.RouterWebGroupApp.Sys.SysApisRouter
+	sysUserRouter := router.RouterWebGroupApp.Sys.SysUsersRouter
+	sysRolesRouter := router.RouterWebGroupApp.Sys.SysRolesRouter
+	sysUserRolesRouter := router.RouterWebGroupApp.Sys.SysUserRolesRouter
+	sysRoleMenusRouter := router.RouterWebGroupApp.Sys.SysRoleMenusRouter
+	sysRoleApisRouter := router.RouterWebGroupApp.Sys.SysRoleApisRouter
 
 	// 解决接口的跨域问题
 	ginServer.Use(filter.Cors())
-	// 登录接口
-	loginRouter := login.LoginRouter{}
-	// 验证码接口
-	codeRouter := code.CodeRouter{}
-
-	// 接口隔离，比如登录，健康检查都不需要拦截和做任何处理
-	loginRouter.InitLoginRouter(ginServer)
-	codeRouter.InitCodeRouter(ginServer)
-
-	// 业务模块接口
-	publicGroup := ginServer.Group("/api")
-	// 只要是api接口都使用jwt拦截
-	publicGroup.Use(middle.JWTAuth())
+	// 接口隔离，比如登录，健康检查都不需要拦截和做任何的处理
+	// 业务模块接口，
+	privateGroup := ginServer.Group("/api")
+	// 无需jwt拦截
 	{
-		videoRouter.InitVideoRouter(publicGroup)
+		loginRouter.InitLoginRouter(privateGroup)
+		logoutRouter.InitLogoutRouter(privateGroup)
+		codeRouter.InitCodeRouter(privateGroup)
+	}
+	// 会被jwt拦截
+	privateGroup.Use(middle.JWTAuth()).Use(middle.CashBin_RBAC())
+	{
+		videoRouter.InitXkVideoRouter(privateGroup)
+		courseRouter.InitCourseRouter(privateGroup)
+		userStateRouter.InitUserStateRouter(privateGroup)
+		bbsRouter.InitXkBbsRouter(privateGroup)
+		bbsCategoryRouter.InitBBSCategoryRouter(privateGroup)
+		sysMenusRouter.InitSysMenusRouter(privateGroup)
+		sysUserRouter.InitSysUsersRouter(privateGroup)
+		sysRolesRouter.InitSysRoleRouter(privateGroup)
+		sysApisRouter.InitSysApisRouter(privateGroup)
+		sysUserRolesRouter.InitSysUserRolesRouter(privateGroup)
+		sysRoleMenusRouter.InitSysRoleMenusRouter(privateGroup)
+		sysRoleApisRouter.InitSysRoleApisRouter(privateGroup)
 	}
 
 	fmt.Println("router register success")
