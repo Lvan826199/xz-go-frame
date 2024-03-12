@@ -13060,14 +13060,6 @@ func (api *LogOutApi) ToLogout(c *gin.Context) {
 
 
 
-# 指定用户下线
-
-直接把用户的状态清空即可。
-
-
-
-# casbin
-
 
 
 
@@ -14183,8 +14175,6 @@ cd nginx-1.20.1
 ```
 nginx path prefix: "/usr/local/nginx"  nginx binary file: "/usr/local/nginx/sbin/nginx"  nginx modules path: "/usr/local/nginx/modules"  nginx configuration prefix: "/usr/local/nginx/conf"  nginx configuration file: "/usr/local/nginx/conf/nginx.conf"  nginx pid file: "/var/run/nginx.pid"  nginx error log file: "/var/log/nginx/error.log"  nginx http access log file: "/var/log/nginx/access.log"  nginx http client request body temporary files: "/var/temp/nginx/client"  nginx http proxy temporary files: "/var/temp/nginx/proxy"  nginx http fastcgi temporary files: "/var/temp/nginx/fastgi"  nginx http uwsgi temporary files: "/var/temp/nginx/uwsgi"  nginx http scgi temporary files: "/var/temp/nginx/scgi"
 ```
-
-![img](../../../../../../L_Learning/%25E6%25B5%258B%25E5%25BC%2580%25E8%25AF%25BE%25E7%25A8%258B/%25E7%258B%2582%25E7%25A5%259E/3-%25E9%25A1%25B9%25E7%259B%25AE%25E5%25AE%259E%25E6%2588%2598%2520-%2520GVA%25E5%2590%258E%25E5%258F%25B0%25E9%25A1%25B9%25E7%259B%25AE%25E7%25AE%25A1%25E7%2590%2586%25E5%25BC%2580%25E5%258F%2591/20230903%25EF%25BC%259A%25E7%25AC%25AC%25E5%259B%259B%25E5%258D%2581%25E4%25B8%2583%25E8%25AF%25BE%25EF%25BC%259A%25E8%2587%25AA%25E5%25BB%25BA%25E9%25A1%25B9%25E7%259B%25AE-%2520%25E9%25A1%25B9%25E7%259B%25AE%25E7%259A%2584%25E5%258F%2591%25E5%25B8%2583%25E5%2592%258C%25E9%2583%25A8%25E7%25BD%25B2/%25E9%25A1%25B9%25E7%259B%25AE%25E7%25AC%2594%25E8%25AE%25B0/assets/kuangstudy09f12de8-430a-417d-a5f1-b8bb772a5c0b.png)
 
 ### 08、 make编译
 
